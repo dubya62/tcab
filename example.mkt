@@ -1,7 +1,10 @@
 
 import test_import as ti; // do not start with . for standard libraries
-import .sub_directory.library_file; // start import with a . to denote that it is in a sub directory
+import .sub_directory.library_file; // start import with a . to denote that it is in a sub directory \n
 
+import test \
+echo hello \    
+echo hi again;
 
 /* This is an example program in the new language */
 public class Main{
@@ -9,7 +12,7 @@ public class Main{
     float test1 = 2.3;
     * test2 = 3;
     float* test2 = 4.5;
-    ** test2 = "hello"; // infer type and assign dynamic length
+    ** test2 = "hello/*test*/ // \n"; // infer type and assign dynamic length
     
 
     use System.out.println;
