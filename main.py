@@ -34,6 +34,8 @@ class ErrorMessage:
         return result
 
 
+RESERVED_WORDS = set(["int", "bool", "float", "short", "long", "double", "char", "void", "class", "public", "private", "protected", "extends", "return", "if", "for", "while", "import", "as", "use", "try", "catch", "switch", "case", "else", "new", "asm", "static"])
+
 
 class Line:
     """
@@ -94,10 +96,10 @@ class Compiler:
         return data 
 
 
-    def add_error(self, line: Line, cause: str, suggestions: str):
+    def add_error(self, line: Line, error_type: str, cause: str, suggestions: str):
         # TODO: implement different types of errors
         result = ErrorMessage()
-        result.type = "N/A"
+        result.type = error_type
         result.line_number = self.parse_line_number(line)
         if result.line_number == "0":
             result.line = "ERROR while fetching line"
@@ -276,6 +278,13 @@ class Compiler:
             i += 1
         debug("Semicolons have been removed!")
 
+    
+    def check_variable_name(self, line:Line, var_name:str):
+        # check to make sure that a variable name follows naming standards
+        
+        pass
+
+
 
     def preprocess(self):
         # The tokens are currently an abstracted blob.
@@ -318,13 +327,45 @@ class Compiler:
                 # check if this is a class definition
                 match (result[i].tokens[1]):
                     case "public":
-                        if "static" in result[i].tokens:
-                            self.add_error(result[i], "idk", 'idk')
+                        # check if this is a class definition
+                        if "class" in result[i].tokens:
+                            # if the next token is not the "class" keyword, throw an error
+                            if result[i].tokens[2] != "class":
+                                # handle different cases 
+                                handled = 0
+                                if "static" in result[i].tokens:
+                                    self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
+                                    handled = 1
+                                if "private" in result[i].tokens:
+                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as both public and private...", "Remove access modifiers until \n\tthere are less than two of them...")
+                                    handled = 1
+                                if "protected" in result[i].tokens:
+                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as both public and protected...", "Remove access modifiers until \n\tthere are less than two of them...")
+                                    handled = 1
+
+                                # put at least some error message
+                                if handled == 0:
+                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class' after 'public'...", "Fix it or something?")
+
+
+                            else: # the next token is class
+                                # the next token should be the name of the class
+                                if m < 3:
+                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
+                                else:
+                                    class_name = result[i].tokens[2]
+                                    
+                                    # throw an error if the class is not named correctly
+                                    self.check_variable_name(result[i], class_name)
 
                     case "private":
                         pass
                     case "protected":
-                        pass
+                        # throw an error if you define a class as protected
+                        if "class" in result[i].tokens:
+                            self.add_error(result[i], "SYNTAX", "Classes cannot be defined as protected...", "Remove the keyword static from this line.")
+
+                            
                     case "static":
                         pass
                     case "class":
