@@ -316,30 +316,41 @@ class Compiler:
             i += 1
         
         # we should now have a list of Line objects (and no more newlines in our tokens)
-        [print(x) for x in result]
 
         # now we should convert some of those lines into classes
         i = 0
         n = len(result)
         while i < n:
-            m = len(result[i].tokens)
-            if m > 1:
+            # first, remove all saved line numbers
+            curr = result[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            print(curr)
+
+            m = len(curr)
+            if m > 0:
                 # check if this is a class definition
-                match (result[i].tokens[1]):
+                match (curr[0]):
                     case "public":
                         # check if this is a class definition
-                        if "class" in result[i].tokens:
+                        if "class" in curr:
                             # if the next token is not the "class" keyword, throw an error
-                            if result[i].tokens[2] != "class":
+                            if curr[1] != "class":
                                 # handle different cases 
                                 handled = 0
-                                if "static" in result[i].tokens:
+                                if "static" in curr:
                                     self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
                                     handled = 1
-                                if "private" in result[i].tokens:
+                                if "private" in curr:
                                     self.add_error(result[i], "SYNTAX", "You cannot define a class as both public and private...", "Remove access modifiers until \n\tthere are less than two of them...")
                                     handled = 1
-                                if "protected" in result[i].tokens:
+                                if "protected" in curr:
                                     self.add_error(result[i], "SYNTAX", "You cannot define a class as both public and protected...", "Remove access modifiers until \n\tthere are less than two of them...")
                                     handled = 1
 
@@ -356,7 +367,7 @@ class Compiler:
                                     class_name = result[i].tokens[2]
                                     
                                     # throw an error if the class is not named correctly
-                                    self.check_variable_name(result[i], class_name)
+                                    self.check_variable_name(curr, class_name)
 
                     case "private":
                         pass
