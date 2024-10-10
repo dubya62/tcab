@@ -15,6 +15,25 @@ def debug(message:str):
     if DEBUG:
         print(message)
 
+# keep a list of exceptions to display just before writing the output
+class ErrorMessage:
+    def __init__(self):
+        self.type = "N/A"
+        self.line_number = "0"
+        self.line = ""
+        self.cause = "The cause is unkown..."
+        self.suggestions = "Good Luck!"
+
+    def __str__(self):
+        result = "-" * 80
+        result += "\n"
+        result += f"ERROR: ({self.type}) in line {self.line_number}:\n"
+        result += f"LINE: \n\t{self.line}\n"
+        result += f"CAUSE: \n\t{self.cause}\n"
+        result += f"SUGGESTIONS: \n\t{self.suggestions}\n"
+        return result
+
+
 
 class Line:
     """
@@ -56,6 +75,8 @@ class Function(Block):
 
 class Compiler:
     def __init__(self, filename:str):
+        self.EXCEPTIONS = []
+
         self.data = self.open_file(filename)
         self.tokens = self.tokenize(self.data)
         self.handle_broken_lines()
@@ -73,6 +94,28 @@ class Compiler:
         return data 
 
 
+    def add_error(self, line: Line, cause: str, suggestions: str):
+        # TODO: implement different types of errors
+        result = ErrorMessage()
+        result.type = "N/A"
+        result.line_number = self.parse_line_number(line)
+        if result.line_number == "0":
+            result.line = "ERROR while fetching line"
+        else:
+            try:
+                result.line = self.data.split("\n")[int(result.line_number)]
+            except:
+                result.line = "ERROR while fetching line"
+        result.cause = cause
+        result.suggestions = suggestions
+        self.EXCEPTIONS.append(result)
+
+    def parse_line_number(self, line: Line):
+        if len(line.tokens) > 0:
+            if len(line.tokens[0]) > 0 and line.tokens[0][0] == '`':
+                return line.tokens[0][1:]
+        return "0"
+
     def tokenize(self, lines:list[str]):
         debug("Tokenizing the source file...")
 
@@ -85,6 +128,8 @@ class Compiler:
         comment = 0
         multi = 0
         doc = 0
+
+        current_line = 1
 
         for i in range(len(lines)):
             if lines[i] in break_tokens:
@@ -166,6 +211,11 @@ class Compiler:
 
                     current_token = ""
 
+                # save the line number for error messages
+                if lines[i] == "\n":
+                    result.append(f"`{current_line}")
+                    current_line += 1
+
             else:
                 current_token += lines[i]
 
@@ -244,12 +294,13 @@ class Compiler:
         curr_line = []
         while i < n:
             if self.tokens[i] == "\n":
-                # ignore lines with nothing on them
-                if len(curr_line) == 0:
+                # ignore lines with nothing on them (except for the line number)
+                if len(curr_line) == 1 and len(curr_line[0]) > 0 and curr_line[0][0] == "`":
                     pass
                 else:
-                    result.append(Line(curr_line))
-                    curr_line = []
+                    if len(curr_line) != 0:
+                        result.append(Line(curr_line))
+                curr_line = []
             else:
                 curr_line.append(self.tokens[i])
 
@@ -262,23 +313,33 @@ class Compiler:
         i = 0
         n = len(result)
         while i < n:
-            if len(result[i]) > 0:
+            m = len(result[i].tokens)
+            if m > 1:
                 # check if this is a class definition
-                match (result[i][0]):
+                match (result[i].tokens[1]):
                     case "public":
-                        pass
+                        if "static" in result[i].tokens:
+                            self.add_error(result[i], "idk", 'idk')
+
                     case "private":
                         pass
                     case "protected":
                         pass
+                    case "static":
+                        pass
                     case "class":
                         pass
+                    case default:
+                        pass
+            i += 1
             
 
 
 
 if __name__ == '__main__':
     compiler = Compiler("example.mkt")
+
+    [print(x) for x in compiler.EXCEPTIONS]
 
     
 
