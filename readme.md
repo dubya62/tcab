@@ -54,6 +54,29 @@
 -   else
 -   new
 -   asm
+-   static
+
+
+## Some ideas
+-   Multiplying an array/list by an integer uses python's method of return that many multiples of the list concatenated
+```
+// list/array declaration
+*[*] test1 = [4, 5, 6, 2.33];
+*[*] test2 = [4] * 10; // a dynamic array of 10 4's
+```
+-   Allow overloading the access operator in classes
+```
+* example = new Example();
+System.out.println(example[0]);
+```
+-   The generate C code should compile conditionally for linux, max, windows, web, ios, and android (as well as different architectures)
+-   Allow the use of the compiler directive # for certain tasks
+    - conditional compilation
+    - telling the compiler that a function produces external output (e.g. println, socket.write(), socket.read(), pipe.read(), pipe.write())
+
+## Compiler Options
+-   fastmath - allow float and double operations to be commutative
+
 
 
 

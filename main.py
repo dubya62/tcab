@@ -16,20 +16,42 @@ def debug(message:str):
         print(message)
 
 
+class Line:
+    """
+    A single line of code.
+    """
+    def __init__(self, tokens: list[str]):
+        self.tokens = tokens
+
+    def __str__(self):
+        return self.tokens.__str__()
+
+
 class Block:
     """
     A simple block of code.
     contains its own scope and is enclosed in {}
     """
-    def __init__(self):
-        pass
+    def __init__(self, lines:list[str]):
+        self.lines = lines
 
-class Class:
-    pass
+    def __str__(self):
+        return self.lines.__str__()
 
-class Function:
-    pass
 
+class Class(Block):
+    """
+    A class.
+    """
+    def __init__(self, lines:list[str]):
+        Block.__init__(lines)
+
+class Function(Block):
+    """
+    A single function.
+    """
+    def __init__(self, lines:list[str]):
+        Block.__init__(lines)
 
 
 class Compiler:
@@ -38,6 +60,7 @@ class Compiler:
         self.tokens = self.tokenize(self.data)
         self.handle_broken_lines()
         self.remove_semicolons()
+        self.preprocess()
 
     def open_file(self, filename:str):
         debug("Attempting to open the file...")
@@ -61,6 +84,7 @@ class Compiler:
         quotes = 0
         comment = 0
         multi = 0
+        doc = 0
 
         for i in range(len(lines)):
             if lines[i] in break_tokens:
@@ -96,6 +120,20 @@ class Compiler:
                                 if not multi:
                                     comment = 1
                                     multi = 0
+                    if lines[i] == "@":
+                        if len(lines) > i + 1:
+                            if comment == 0:
+                                multi = 1
+                            comment = 1
+                            doc = 1
+
+                # you found the end of a documentation block
+                if lines[i] == "}":
+                    if doc:
+                        multi = 0
+                        comment = 0
+                        doc = 0
+                        continue
 
                 
                 if quotes:
@@ -175,19 +213,73 @@ class Compiler:
         n = len(self.tokens)
         while i < n:
             if self.tokens[i] == ";":
+                if n > i + 1:
+                    # if the semicolon separates two statements
+                    if self.tokens[i+1] != "\n":
+                        self.tokens[i] = "\n"
+                        i += 1
+                        continue
+                # otherwise, just remove the semicolon
                 del self.tokens[i]
                 i -= 1
                 n -= 1
             i += 1
         debug("Semicolons have been removed!")
 
-    
+
+    def preprocess(self):
+        # The tokens are currently an abstracted blob.
+        # create a similar level of abstraction here and check the syntax
+        # warn the programmer if there are any errors
+        # after preprocessing, we can focus on optimizing
+        
+        # the first thing we will do is iterate through each line and convert it to the correct class
+        debug("Preprocessing...")
+
+        result = []
+
+        i = 0
+        n = len(self.tokens)
+
+        curr_line = []
+        while i < n:
+            if self.tokens[i] == "\n":
+                # ignore lines with nothing on them
+                if len(curr_line) == 0:
+                    pass
+                else:
+                    result.append(Line(curr_line))
+                    curr_line = []
+            else:
+                curr_line.append(self.tokens[i])
+
+            i += 1
+        
+        # we should now have a list of Line objects (and no more newlines in our tokens)
+        [print(x) for x in result]
+
+        # now we should convert some of those lines into classes
+        i = 0
+        n = len(result)
+        while i < n:
+            if len(result[i]) > 0:
+                # check if this is a class definition
+                match (result[i][0]):
+                    case "public":
+                        pass
+                    case "private":
+                        pass
+                    case "protected":
+                        pass
+                    case "class":
+                        pass
+            
+
 
 
 if __name__ == '__main__':
     compiler = Compiler("example.mkt")
 
-    print(compiler.tokens)
     
 
 
