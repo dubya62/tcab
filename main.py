@@ -832,6 +832,11 @@ class Compiler:
         print("REMAINING LINES:")
         [print(x) for x in remaining_lines]
 
+    
+    def remove_subclass_lines(self, the_class:Class) -> Class:
+        if len(the_class.subclasses) == 0:
+            return the_class
+
 
     def handle_subclasses(self):
         ends = []
@@ -849,6 +854,18 @@ class Compiler:
                     print(f"{classes[j]} has subclass {self.classes[i]}") 
                     is_subclass = 1
 
+                    # FIXME: use the distance instead of the line number
+                    super_start = int(self.parse_line_number(classes[j].lines[0]))
+                    subclass_start = start - super_start - 1
+                    subclass_end = subclass_start + len(self.classes[i].lines) - 1
+                    print("HERE")
+                    print(subclass_start, subclass_end)
+                    [print(x) for x in classes[j].lines]
+                    
+                    classes[j].lines = classes[j].lines[0:subclass_start] + classes[j].lines[subclass_end+1:]
+
+                    break
+
             end = int(self.parse_line_number(self.classes[i].lines[-1]))
             ends.append(end)
             classes.append(self.classes[i])
@@ -857,13 +874,20 @@ class Compiler:
         # remove classes from the global scope if they are subclasses
         self.classes = [classes[x] for x in range(len(classes)) if is_subclasses[x] == 0]
 
+        # now recursively remove the lines that subclasses take up since they are in a subclass array
+        for i in range(len(self.classes)):
+            #self.classes[i] = self.remove_subclass_lines(self.classes[i])
+            pass
+
 
     def block_classes(self):
         # first, figure out which classes are subclasses of others
         self.handle_subclasses()
+
         
         # use the found class objects and break
         # them up into normal lines and functions
+
         """
         for i in range(len(self.classes)):
             curr = self.classes[i]
