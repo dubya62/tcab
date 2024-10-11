@@ -83,3 +83,7 @@ public class Main{
 
 }
 
+public class Text extends Test, AnotherClass{
+    int testingNumber = 5;
+
+}

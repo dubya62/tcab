@@ -34,7 +34,7 @@ class ErrorMessage:
         return result
 
 
-RESERVED_WORDS = set(["int", "bool", "float", "short", "long", "double", "char", "void", "class", "public", "private", "protected", "extends", "return", "if", "for", "while", "import", "as", "use", "try", "catch", "switch", "case", "else", "new", "asm", "static"])
+RESERVED_WORDS = set(["int", "bool", "float", "short", "long", "double", "char", "void", "class", "public", "private", "protected", "extends", "return", "if", "for", "while", "import", "as", "use", "try", "catch", "switch", "case", "else", "new", "asm", "static", "extends"])
 
 
 class Line:
@@ -56,6 +56,11 @@ class Block:
     def __init__(self, lines:list[str]):
         self.lines = lines
 
+    def print(self):
+        for line in self.lines:
+            print(line)
+        print()
+
     def __str__(self):
         return self.lines.__str__()
 
@@ -64,15 +69,27 @@ class Class(Block):
     """
     A class.
     """
-    def __init__(self, lines:list[str]):
-        Block.__init__(lines)
+    def __init__(self, class_name:str, parents:list[str], lines:list[str]):
+        Block.__init__(self, lines)
+        self.name = class_name
+        self.parents = parents
+
+    def print(self):
+        print(self.__str__())
+        print(f"extends: {self.parents}")
+        Block.print(self)
+
+    def __str__(self):
+        return f"class {self.name} ({len(self.lines)} lines)"
+
 
 class Function(Block):
     """
     A single function.
     """
-    def __init__(self, lines:list[str]):
-        Block.__init__(lines)
+    def __init__(self, function_name:str, lines:list[str]):
+        Block.__init__(self, lines)
+        self.name = function_name
 
 
 class Compiler:
@@ -317,6 +334,10 @@ class Compiler:
         
         # we should now have a list of Line objects (and no more newlines in our tokens)
 
+        self.classes = []
+
+        global_scope = [1] * len(result)
+
         # now we should convert some of those lines into classes
         i = 0
         n = len(result)
@@ -364,34 +385,470 @@ class Compiler:
                                 if m < 3:
                                     self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
                                 else:
-                                    class_name = result[i].tokens[2]
+                                    class_name = curr[2]
                                     
                                     # throw an error if the class is not named correctly
                                     self.check_variable_name(curr, class_name)
 
+                                    # the next token should be extends or {
+                                    if m < 4:
+                                        self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                    else:
+                                        # this is the end of the class definition
+                                        if curr[3] == "{":
+                                            # TODO: act as though anything else on this line is on the next line
+
+                                            # for now, just start gathering lines into a class block
+                                            # iterate through each token, trying to find the matching }
+                                            inner_lines = []
+
+                                            j = i + 1
+                                            number_of_lines = len(result)
+                                            opens = 1
+                                            # iterate through lines until the end of the file
+                                            while j < number_of_lines:
+                                                k = 0
+                                                tokens_len = len(result[j].tokens)
+                                                while k < tokens_len:
+                                                    if result[j].tokens[k] == "{":
+                                                        opens += 1
+                                                    elif result[j].tokens[k] == "}":
+                                                        opens -= 1
+
+                                                    if opens == 0:
+                                                        break
+                                                    k += 1
+                                                if opens == 0:
+                                                    break
+                                                j += 1
+
+                                            # if the class definition was never closed
+                                            if opens != 0:
+                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                            
+                                            inner_lines = result[i:j+1]
+
+                                            new_class = Class(class_name, [], inner_lines)
+
+                                            # update the global scope
+                                            for k in range(i, j+1):
+                                                global_scope[k] = 0
+
+
+                                            debug(f"Class {class_name} found!")
+
+                                            self.classes.append(new_class)
+                                            
+                                        elif curr[3] == "extends":
+                                            # get all parent classes
+                                            if m < 5:
+                                                self.add_error(result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
+
+                                            j = 4
+                                            while j < m:
+                                                if curr[j] == "{":
+                                                    break
+                                                j += 1
+                                            parent_classes = curr[4:j]
+                                            
+                                            # TODO: act as though anything else on this line is on the next line
+
+                                            # for now, just start gathering lines into a class block
+                                            # iterate through each token, trying to find the matching }
+                                            inner_lines = []
+
+                                            j = i + 1
+                                            number_of_lines = len(result)
+                                            opens = 1
+                                            # iterate through lines until the end of the file
+                                            while j < number_of_lines:
+                                                k = 0
+                                                tokens_len = len(result[j].tokens)
+                                                while k < tokens_len:
+                                                    if result[j].tokens[k] == "{":
+                                                        opens += 1
+                                                    elif result[j].tokens[k] == "}":
+                                                        opens -= 1
+
+                                                    if opens == 0:
+                                                        break
+                                                    k += 1
+                                                if opens == 0:
+                                                    break
+                                                j += 1
+
+                                            # if the class definition was never closed
+                                            if opens != 0:
+                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                            
+                                            inner_lines = result[i:j+1]
+
+                                            new_class = Class(class_name, parent_classes, inner_lines)
+
+                                            # update the global scope
+                                            for k in range(i, j+1):
+                                                global_scope[k] = 0
+
+
+                                            debug(f"Class {class_name} found!")
+
+                                            self.classes.append(new_class)
+                                            
+
+                                        
+                                        else:
+                                            # throw an error if it neither extends nor 
+                                            self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                    
+
                     case "private":
-                        pass
+                        # check if this is a class definition
+                        if "class" in curr:
+                            # if the next token is not the "class" keyword, throw an error
+                            if curr[1] != "class":
+                                # handle different cases 
+                                handled = 0
+                                if "static" in curr:
+                                    self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
+                                    handled = 1
+                                if "public" in curr:
+                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as both private and public...", "Remove access modifiers until \n\tthere are less than two of them...")
+                                    handled = 1
+                                if "protected" in curr:
+                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as protected...", "Remove 'protected'.")
+                                    handled = 1
+
+                                # put at least some error message
+                                if handled == 0:
+                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class' after 'private'...", "Fix it or something?")
+
+
+                            else: # the next token is class
+                                # the next token should be the name of the class
+                                if m < 3:
+                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
+                                else:
+                                    class_name = curr[2]
+                                    
+                                    # throw an error if the class is not named correctly
+                                    self.check_variable_name(curr, class_name)
+
+                                    # the next token should be extends or {
+                                    if m < 4:
+                                        self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                    else:
+                                        # this is the end of the class definition
+                                        if curr[3] == "{":
+                                            # TODO: act as though anything else on this line is on the next line
+
+                                            # for now, just start gathering lines into a class block
+                                            # iterate through each token, trying to find the matching }
+                                            inner_lines = []
+
+                                            j = i + 1
+                                            number_of_lines = len(result)
+                                            opens = 1
+                                            # iterate through lines until the end of the file
+                                            while j < number_of_lines:
+                                                k = 0
+                                                tokens_len = len(result[j].tokens)
+                                                while k < tokens_len:
+                                                    if result[j].tokens[k] == "{":
+                                                        opens += 1
+                                                    elif result[j].tokens[k] == "}":
+                                                        opens -= 1
+
+                                                    if opens == 0:
+                                                        break
+                                                    k += 1
+                                                if opens == 0:
+                                                    break
+                                                j += 1
+
+                                            # if the class definition was never closed
+                                            if opens != 0:
+                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                            
+                                            inner_lines = result[i:j+1]
+
+                                            new_class = Class(class_name, [], inner_lines)
+
+                                            # update the global scope
+                                            for k in range(i, j+1):
+                                                global_scope[k] = 0
+
+                                            debug(f"Class {class_name} found!")
+
+                                            self.classes.append(new_class)
+                                            
+                                        elif curr[3] == "extends":
+                                            # get all parent classes
+                                            if m < 5:
+                                                self.add_error(result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
+
+                                            j = 4
+                                            while j < m:
+                                                if curr[j] == "{":
+                                                    break
+                                                j += 1
+                                            parent_classes = curr[4:j]
+                                            
+                                            # TODO: act as though anything else on this line is on the next line
+
+                                            # for now, just start gathering lines into a class block
+                                            # iterate through each token, trying to find the matching }
+                                            inner_lines = []
+
+                                            j = i + 1
+                                            number_of_lines = len(result)
+                                            opens = 1
+                                            # iterate through lines until the end of the file
+                                            while j < number_of_lines:
+                                                k = 0
+                                                tokens_len = len(result[j].tokens)
+                                                while k < tokens_len:
+                                                    if result[j].tokens[k] == "{":
+                                                        opens += 1
+                                                    elif result[j].tokens[k] == "}":
+                                                        opens -= 1
+
+                                                    if opens == 0:
+                                                        break
+                                                    k += 1
+                                                if opens == 0:
+                                                    break
+                                                j += 1
+
+                                            # if the class definition was never closed
+                                            if opens != 0:
+                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                            
+                                            inner_lines = result[i:j+1]
+
+                                            new_class = Class(class_name, parent_classes, inner_lines)
+
+                                            # update the global scope
+                                            for k in range(i, j+1):
+                                                global_scope[k] = 0
+
+                                            debug(f"Class {class_name} found!")
+
+                                            self.classes.append(new_class)
+                                            
+
+                                        
+                                        else:
+                                            # throw an error if it neither extends nor 
+                                            self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+
+                    case "class":
+                        # check if this is a class definition
+                        if "class" in curr:
+                            # if the next token is not the "class" keyword, throw an error
+                            if curr[0] != "class":
+                                # handle different cases 
+                                handled = 0
+                                if "static" in curr:
+                                    self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
+                                    handled = 1
+                                if "public" in curr:
+                                    self.add_error(result[i], "SYNTAX", "Keyword 'public' should go before 'class'", "Either change the order or remove 'public'.")
+                                    handled = 1
+                                if "private" in curr:
+                                    self.add_error(result[i], "SYNTAX", "Keyword 'private' should go before 'class'", "Either change the order or remove 'private'.")
+                                    handled = 1
+                                if "protected" in curr:
+                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as protected...", "Remove 'protected'.")
+                                    handled = 1
+
+                                # put at least some error message
+                                if handled == 0:
+                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class <ClassName> {'", "Fix it or something?")
+
+
+                            else: # the next token is class
+                                # the next token should be the name of the class
+                                if m < 2:
+                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
+                                else:
+                                    class_name = curr[1]
+                                    
+                                    # throw an error if the class is not named correctly
+                                    self.check_variable_name(curr, class_name)
+
+                                    # the next token should be extends or {
+                                    if m < 3:
+                                        self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                    else:
+                                        # this is the end of the class definition
+                                        if curr[2] == "{":
+                                            # TODO: act as though anything else on this line is on the next line
+
+                                            # for now, just start gathering lines into a class block
+                                            # iterate through each token, trying to find the matching }
+                                            inner_lines = []
+
+                                            j = i + 1
+                                            number_of_lines = len(result)
+                                            opens = 1
+                                            # iterate through lines until the end of the file
+                                            while j < number_of_lines:
+                                                k = 0
+                                                tokens_len = len(result[j].tokens)
+                                                while k < tokens_len:
+                                                    if result[j].tokens[k] == "{":
+                                                        opens += 1
+                                                    elif result[j].tokens[k] == "}":
+                                                        opens -= 1
+
+                                                    if opens == 0:
+                                                        break
+                                                    k += 1
+                                                if opens == 0:
+                                                    break
+                                                j += 1
+
+                                            # if the class definition was never closed
+                                            if opens != 0:
+                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                            
+                                            inner_lines = result[i:j+1]
+
+                                            new_class = Class(class_name, [], inner_lines)
+
+                                            # update the global scope
+                                            for k in range(i, j+1):
+                                                global_scope[k] = 0
+
+                                            debug(f"Class {class_name} found!")
+
+                                            self.classes.append(new_class)
+                                            
+                                        elif curr[2] == "extends":
+                                            # get all parent classes
+                                            if m < 4:
+                                                self.add_error(result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
+
+                                            j = 3
+                                            while j < m:
+                                                if curr[j] == "{":
+                                                    break
+                                                j += 1
+                                            parent_classes = curr[3:j]
+                                            
+                                            # TODO: act as though anything else on this line is on the next line
+
+                                            # for now, just start gathering lines into a class block
+                                            # iterate through each token, trying to find the matching }
+                                            inner_lines = []
+
+                                            j = i + 1
+                                            number_of_lines = len(result)
+                                            opens = 1
+                                            # iterate through lines until the end of the file
+                                            while j < number_of_lines:
+                                                k = 0
+                                                tokens_len = len(result[j].tokens)
+                                                while k < tokens_len:
+                                                    if result[j].tokens[k] == "{":
+                                                        opens += 1
+                                                    elif result[j].tokens[k] == "}":
+                                                        opens -= 1
+
+                                                    if opens == 0:
+                                                        break
+                                                    k += 1
+                                                if opens == 0:
+                                                    break
+                                                j += 1
+
+                                            # if the class definition was never closed
+                                            if opens != 0:
+                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                            
+                                            inner_lines = result[i:j+1]
+
+                                            new_class = Class(class_name, parent_classes, inner_lines)
+
+                                            # update the global scope
+                                            for k in range(i, j+1):
+                                                global_scope[k] = 0
+
+
+                                            debug(f"Class {class_name} found!")
+
+                                            self.classes.append(new_class)
+                                            
+
+                                        
+                                        else:
+                                            # throw an error if it neither extends nor 
+                                            self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+
+
                     case "protected":
                         # throw an error if you define a class as protected
-                        if "class" in result[i].tokens:
+                        if "class" in curr:
                             self.add_error(result[i], "SYNTAX", "Classes cannot be defined as protected...", "Remove the keyword static from this line.")
 
                             
-                    case "static":
-                        pass
-                    case "class":
-                        pass
                     case default:
                         pass
             i += 1
             
+        # the classes should now all be gathered
+        # now make sure that everything is inside of a class (except for imports and compiler directives)
+        remaining_lines = []
 
+        for i in range(len(global_scope)):
+            # check each line in the global scope to make sure it is 
+            # either an import or compiler directive
+            if global_scope[i]:
+                curr = result[i].tokens.copy()
+                j = 0
+                while j < len(curr):
+                    if len(curr[j]) > 0:
+                        if curr[j][0] == '`':
+                            del curr[j]
+                            j -= 1
+                    j += 1
+
+                n = len(curr)
+                if n < 1:
+                    self.add_error(result[i], "SYNTAX", "Stray token found in global scope...", "Remove it.")
+
+                else:
+                    if curr[0] == "import" or curr[0] == "#":
+                        remaining_lines.append(result[i])
+                    else:
+                        self.add_error(result[i], "SYNTAX", "Only classes, import statments, or compiler directives are allowed in the global scope...", "Remove the offending statement or put it in a class.")
+
+        # we now have all global lines
+        # and all classes put into an array
+        # now we can further block each class
+        self.block_classes()
+
+        print("REMAINING LINES:")
+        [print(x) for x in remaining_lines]
+
+
+    def block_classes(self):
+        # use the found class objects and break
+        # them up into normal lines and functions
+        for i in range(len(self.classes)):
+            curr = self.classes[i]
+
+            # iterate through the tokens inside the class
+            # gather the functions and remaining statements
+            
 
 
 if __name__ == '__main__':
-    compiler = Compiler("example.mkt")
+    compiler = Compiler("test.mkt")
 
     [print(x) for x in compiler.EXCEPTIONS]
+    print()
+    [x.print() for x in compiler.classes]
 
     
 
