@@ -73,6 +73,7 @@ class Class(Block):
         Block.__init__(self, lines)
         self.name = class_name
         self.parents = parents
+        self.subclasses = []
 
     def print(self):
         print(self.__str__())
@@ -832,14 +833,79 @@ class Compiler:
         [print(x) for x in remaining_lines]
 
 
+    def handle_subclasses(self):
+        ends = []
+        classes = []
+        is_subclasses = []
+        for i in range(len(self.classes)):
+            start = int(self.parse_line_number(self.classes[i].lines[0]))
+            
+            is_subclass = 0
+
+            # iterate backwards through the possible superclasses
+            for j in range(len(classes)-1, -1, -1):
+                if start < ends[j]:
+                    classes[j].subclasses.append(self.classes[i])
+                    print(f"{classes[j]} has subclass {self.classes[i]}") 
+                    is_subclass = 1
+
+            end = int(self.parse_line_number(self.classes[i].lines[-1]))
+            ends.append(end)
+            classes.append(self.classes[i])
+            is_subclasses.append(is_subclass)
+
+        # remove classes from the global scope if they are subclasses
+        self.classes = [classes[x] for x in range(len(classes)) if is_subclasses[x] == 0]
+
+
     def block_classes(self):
+        # first, figure out which classes are subclasses of others
+        self.handle_subclasses()
+        
         # use the found class objects and break
         # them up into normal lines and functions
+        """
         for i in range(len(self.classes)):
             curr = self.classes[i]
 
             # iterate through the tokens inside the class
             # gather the functions and remaining statements
+            n = len(curr.lines)
+            j = 1
+            while j < n:
+                # check if the current line is a function header
+                curr_line = curr.lines[i].tokens.copy()
+                k = 0
+                while k < len(curr_line):
+                    if len(curr_line[k]) > 0:
+                        if curr_line[k][0] == '`':
+                            del curr_line[k]
+                            k -= 1
+                    k += 1
+
+                m = len(curr_line)
+
+                # function headers should start with public, private, or a return type
+                if m < 1:
+                    # this line has nothing on it
+                    pass
+                else:
+                    if curr_line[0] == "public":
+                        pass
+                    elif curr_line[0] == "private":
+                        pass
+                    else:
+                        # try to figure out what this line is.
+                        # it could be a function, a variable, or a use statement.
+                        pass
+
+
+
+                j += 1
+        """
+
+
+
             
 
 

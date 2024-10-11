@@ -77,6 +77,22 @@ System.out.println(example[0]);
 ## Compiler Options
 -   fastmath - allow float and double operations to be commutative
 
+## more ideas
+-   allow defining a class inside a class
+
+## Compiler directives
+-   conditional compilation 
+    - platform
+    - whether or not a certain variable was passed to the compiler in the cli args
+-   the acceptable values/types for a variable
+-   A method where a library writer can put responsibility on the user to perform error checking
+-   whether or not a function provides human output
+-   the cost of a specific function
+
+
+
+
+
 
 
 

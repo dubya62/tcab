@@ -4,6 +4,20 @@ import test.*;
 
 public class Test{
     int test;
+
+    private class SubTest{
+        public class SubSubTest{
+
+        }
+
+        private class SubSubTest2{
+
+        }
+    }
+
+    private class AnotherTest{
+
+    }
 }
 
 public class Test2 extends Test{
