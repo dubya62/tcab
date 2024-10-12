@@ -78,6 +78,7 @@ class Class(Block):
     def print(self):
         print(self.__str__())
         print(f"extends: {self.parents}")
+        print(f"subclasses: {[str(x) for x in self.subclasses]}")
         Block.print(self)
 
     def __str__(self):
@@ -94,10 +95,16 @@ class Function(Block):
 
 
 class Compiler:
-    def __init__(self, filename:str):
+    def __init__(self, filename:str, imports:list[str]=[], relation:str=""):
         self.EXCEPTIONS = []
+        self.imports = imports
+        self.relation = relation
 
-        self.data = self.open_file(filename)
+        if filename[:2] != "./":
+            filename = "./" + filename
+        self.imports.append(filename)
+        self.filename = filename
+        self.data = self.open_file(self.filename)
         self.tokens = self.tokenize(self.data)
         self.handle_broken_lines()
         self.remove_semicolons()
@@ -110,6 +117,8 @@ class Compiler:
                 data = f.read()
         except:
             print(f"Error opening file {filename}")
+            print(f"Please make sure this file exists or download any required dependencies first.")
+            exit()
         debug("Finished reading file!")
         return data 
 
@@ -827,17 +836,16 @@ class Compiler:
         # we now have all global lines
         # and all classes put into an array
         # now we can further block each class
-        self.block_classes()
+        self.handle_subclasses()
 
         print("REMAINING LINES:")
         [print(x) for x in remaining_lines]
 
+        # now we need to handle import statements.
+        # all import statements must be in the global scope
+        self.handle_imports(remaining_lines)
+
     
-    def remove_subclass_lines(self, the_class:Class) -> Class:
-        if len(the_class.subclasses) == 0:
-            return the_class
-
-
     def handle_subclasses(self):
         ends = []
         classes = []
@@ -854,13 +862,15 @@ class Compiler:
                     print(f"{classes[j]} has subclass {self.classes[i]}") 
                     is_subclass = 1
 
-                    # FIXME: use the distance instead of the line number
-                    super_start = int(self.parse_line_number(classes[j].lines[0]))
-                    subclass_start = start - super_start - 1
+                    subclass_start = 0
+                    subclass_line_number = int(self.parse_line_number(self.classes[i].lines[0]))
+                    for x in classes[j].lines:
+                        curr_line_number = int(self.parse_line_number(x))
+                        if curr_line_number == subclass_line_number:
+                            break
+                        subclass_start += 1
+
                     subclass_end = subclass_start + len(self.classes[i].lines) - 1
-                    print("HERE")
-                    print(subclass_start, subclass_end)
-                    [print(x) for x in classes[j].lines]
                     
                     classes[j].lines = classes[j].lines[0:subclass_start] + classes[j].lines[subclass_end+1:]
 
@@ -874,72 +884,146 @@ class Compiler:
         # remove classes from the global scope if they are subclasses
         self.classes = [classes[x] for x in range(len(classes)) if is_subclasses[x] == 0]
 
-        # now recursively remove the lines that subclasses take up since they are in a subclass array
-        for i in range(len(self.classes)):
-            #self.classes[i] = self.remove_subclass_lines(self.classes[i])
-            pass
+
+    def handle_imports(self, remaining:list[Line]):
+        # To handle imports, simply include all of the code from that file
+        # instead of just putting the code at the top, put it all in a class
+        # with the same name as the file it is imported from
+        result = []
+
+        # rather than getting stuck in an infinite loop during a circular import,
+        # only import each unique filename once
+        i = 0
+        n = len(remaining)
+        while i < n:
+            # check each line to see if it is an import
+            curr = remaining[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            m = len(curr)
+
+            if m > 0:
+                if curr[0] == "import":
+                    # remove the import statement from remaining tokens
+                    del remaining[i]
+                    i -= 1
+                    n -= 1
+
+                    debug("Handling import statement.")
+                    # if this is an import statement
+
+                    # first, see how many .'s prepend the first directory/file
+                    the_path = curr[1:]
+
+                    dots = 0
+                    for x in the_path:
+                        if x == '.':
+                            dots += 1
+                        else:
+                            break
+                    path_start = dots
+
+                    this_path = self.filename.split("/")[:-1]
+                    while this_path[-1] not in [".", ".."] and dots > 0:
+                        del this_path[-1]
+                        dots -= 1
+
+                    for x in range(dots):
+                        this_path.append("..")
+
+                    for j in range(path_start, len(the_path)):
+                        this_path.append(the_path[j])
+
+                    # join the path back
+                    j = 0
+                    while j < len(this_path):
+                        if this_path[j] == ".":
+                            del this_path[j]
+                            j -= 1
+                        j += 1
+                    this_path = "/".join(this_path)
+                    this_path += ".crst"
+
+                    # this path should represent a file.
+                    # try to open the file in a new compiler object
+                    if "./" + this_path not in self.imports:
+                        debug(f"Creating new compiler object for {this_path}")
+                        new_compiler = Compiler(this_path, self.imports, the_path)
+                        # update your imports
+                        self.imports = new_compiler.imports
+                        result.append(new_compiler)
+                    else:
+                        debug("This file has already been imported... ignoring")
 
 
-    def block_classes(self):
-        # first, figure out which classes are subclasses of others
-        self.handle_subclasses()
+            i += 1
 
-        
-        # use the found class objects and break
-        # them up into normal lines and functions
-
-        """
-        for i in range(len(self.classes)):
-            curr = self.classes[i]
-
-            # iterate through the tokens inside the class
-            # gather the functions and remaining statements
-            n = len(curr.lines)
-            j = 1
-            while j < n:
-                # check if the current line is a function header
-                curr_line = curr.lines[i].tokens.copy()
-                k = 0
-                while k < len(curr_line):
-                    if len(curr_line[k]) > 0:
-                        if curr_line[k][0] == '`':
-                            del curr_line[k]
-                            k -= 1
-                    k += 1
-
-                m = len(curr_line)
-
-                # function headers should start with public, private, or a return type
-                if m < 1:
-                    # this line has nothing on it
+        # encase all imports with relative paths starting with a . in private class . {}
+        for i in range(len(result)):
+            last = None
+            for j in range(len(result[i].relation)):
+                new_class = Class(result[i].relation[j], [], [])
+                if last == None:
+                    new_class.lines = [Line(["protected", "class", new_class.name, "{"]), Line(["}"])]
+                    self.classes.append(new_class)
                     pass
                 else:
-                    if curr_line[0] == "public":
-                        pass
-                    elif curr_line[0] == "private":
-                        pass
-                    else:
-                        # try to figure out what this line is.
-                        # it could be a function, a variable, or a use statement.
-                        pass
+                    last.subclasses.append(new_class)
+                last = new_class
+
+                if j == len(result[i].relation) - 1:
+                    new_class.lines = [Line(["public", "class", new_class.name, "{"])] + result[i].remaining_lines + [Line(["}"])]
+                    new_class.subclasses = result[i].classes
+
+
+        self.remaining_lines = remaining
+
+
+        debug("All imports have been preprocessed!")
+        return result
 
 
 
-                j += 1
-        """
+class Parser:
+    """
+    Takes control after the Compiler has handled all imports and classes
+    """
+
+    def __init__(self, remaining_lines:list[Line], classes:list[Class]):
+        self.remaining_lines = remaining_lines
+        self.classes = classes
+
+    def handle_inside_class(self, the_class:Class):
+        # handle potential compiler directives, functions, statements inside of functions, declarations, and use statements within a class
+        # we will ignore compiler directives until the end
+        # we should have enough information to start gathering functions and variable declarations
+        
 
 
+        pass
 
-            
+
 
 
 if __name__ == '__main__':
-    compiler = Compiler("test.mkt")
+    compiler = Compiler("test.crst")
 
+    print()
     [print(x) for x in compiler.EXCEPTIONS]
     print()
     [x.print() for x in compiler.classes]
 
+    # the compiler now has a massive tree of classes and all imports handled
+    # the only remaining tokens should be compiler directives, functions, statements inside of functions, declarations, and use statements
+    parser = Parser(compiler.remaining_lines, compiler.classes)
+
+    
     
 
 

@@ -1,6 +1,6 @@
 
 
-import test.*;
+import example
 
 public class Test{
     int test;
