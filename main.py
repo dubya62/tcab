@@ -74,6 +74,25 @@ class Class(Block):
         self.name = class_name
         self.parents = parents
         self.subclasses = []
+        self.functions = []
+
+    def get_scope(self):
+        # check the first line of this classes' definition
+        if len(self.lines) < 1:
+            return "private"
+        if len(self.lines[0].tokens) < 1:
+            return "private"
+
+        match (self.lines[0].tokens[0]):
+            case "private":
+                return "private"
+            case "public":
+                return "public"
+            case "protected":
+                return "protected"
+            case default:
+                return "private"
+
 
     def print(self):
         print(self.__str__())
@@ -89,9 +108,12 @@ class Function(Block):
     """
     A single function.
     """
-    def __init__(self, function_name:str, lines:list[str]):
+    def __init__(self, function_name:str, params:list[str], return_type:list[str], access:str, lines:list[str]):
         Block.__init__(self, lines)
         self.name = function_name
+        self.params = params
+        self.return_type = return_type
+        self.access = access
 
 
 class Compiler:
@@ -234,6 +256,17 @@ class Compiler:
                                     result.append(lines[i])
                             else:
                                 result.append(lines[i])
+                        case "{":
+                            if not comment:
+                                result.append(lines[i])
+                                result.append("\n")
+                                result.append(f"`{current_line}")
+                        case "}":
+                            if not comment:
+                                result.append(lines[i])
+                                result.append("\n")
+                                result.append(f"`{current_line}")
+
                         case default:
                             if not comment:
                                 result.append(lines[i])
@@ -999,17 +1032,225 @@ class Parser:
     """
 
     def __init__(self, remaining_lines:list[Line], classes:list[Class]):
+        self.EXCEPTIONS = []
+
         self.remaining_lines = remaining_lines
         self.classes = classes
+
+        for x in range(len(self.classes)):
+            self.classes[x] = self.handle_inside_class(self.classes[x])
+
+
+    def parse_line_number(self, line: Line):
+        if len(line.tokens) > 0:
+            if len(line.tokens[0]) > 0 and line.tokens[0][0] == '`':
+                return line.tokens[0][1:]
+        return "0"
+
+
+    def add_error(self, line: Line, error_type: str, cause: str, suggestions: str):
+        debug(f"Added error message... ({cause})")
+        result = ErrorMessage()
+        result.type = error_type
+        result.line_number = self.parse_line_number(line)
+        if result.line_number == "0":
+            result.line = "ERROR while fetching line"
+        else:
+            try:
+                result.line = self.data.split("\n")[int(result.line_number)]
+            except:
+                result.line = "ERROR while fetching line"
+        result.cause = cause
+        result.suggestions = suggestions
+        self.EXCEPTIONS.append(result)
+
+
 
     def handle_inside_class(self, the_class:Class):
         # handle potential compiler directives, functions, statements inside of functions, declarations, and use statements within a class
         # we will ignore compiler directives until the end
         # we should have enough information to start gathering functions and variable declarations
         
+        
+        i = 0
+        n = len(the_class.lines)
+
+        if n > 1:
+            # remove the first and last lines
+            del the_class.lines[0]
+            del the_class.lines[-1]
+
+        n = len(the_class.lines)
+
+        while i < n:
+            # iterate through the lines. 
+
+            # right now, just separate functions from the rest of the statements
+            # functions are in this form:
+            # public static void main(float | String test){
+            # void main(* test){
+            curr = the_class.lines[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            m = len(curr)
+
+            if m > 0:
+                # this should be a function definition
+                if curr[-1] == "{":
+                    debug("Found function defintion")
+                    
+                    # parse the line and try to create the function
+                    is_static = 0
+                    return_type_start = 0
+                    access = "private"
+                    if curr[0] == "public":
+                        access = "public"
+                        return_type_start = 1
+                        if m > 1:
+                            if curr[1] == "static":
+                                is_static = 1
+                                return_type_start = 2
+                    elif curr[0] == "static":
+                        is_static = 1
+                        access = "private"
+                        return_type_start = 1
+                    elif curr[0] == "protected":
+                        access = "protected"
+                        return_type_start = 1
+                        if m > 1:
+                            if curr[1] == "static":
+                                is_static = 1
+                                return_type_start = 2
+                    elif curr[0] == "private":
+                        return_type_start = 1
+                        if m > 1:
+                            if curr[1] == "static":
+                                is_static = 1
+                                return_type_start = 2
+                    else:
+                        # if none of the other cases happened, the first tokens are the return type
+                        return_type_start = 0
+                    
+                    # we now have the access specifier, whether or not it is static, and where the return type starts
+                    # we expect a return type, a name, and parameters inside of (), then {
+                    # work backwards to find the name (directly before the last close parenthesis were opened
+                    if m > 1:
+                        if curr[-2] != ")":
+                            self.add_error(the_class.lines[i], "SYNTAX", "Expected ')' at end of parameters...", "Put a ')' directly before the '{'.")
+                        else:
+                            # work backwards until finding the opening of that parenthesis
+                            j = m - 3
+                            opens = 1
+                            while j >= 0:
+                                if curr[j] == ")":
+                                    opens += 1
+                                elif curr[j] == "(":
+                                    opens -= 1
+
+                                if opens == 0:
+                                    break
+                                j -= 1
+
+                            # the opener was never found
+                            if j < 0:
+                                self.add_error(the_class.lines[i], "SYNTAX", "Expected '(' before list of parameters...", "Enclose parameters in '(' and ')'.")
+                            else:
+                                if j == 0:
+                                    self.add_error(the_class.lines[i], "SYNTAX", "Expected function name before '('...", "Name the function.")
+                                else:
+                                    params = curr[j+1:-2]
+
+                                    function_name = curr[j-1]
+
+                                    # everything from return_type_start to the name is the return type
+                                    return_type = curr[return_type_start:j-1]
+
+                                    debug(f"Function parsed: name - {function_name}\treturn_type - {return_type}\tparams - {params}")
+
+                                    # now start on the next line and get the contents of this function,
+                                    # breaking at the closing line
+                                    opens = 1
+                                    j = i + 1
+                                    while j < n:
+                                        for x in the_class.lines[j].tokens:
+                                            if x == "{":
+                                                opens += 1
+                                            elif x == "}":
+                                                opens -= 1
+                                            if opens == 0:
+                                                break
+                                        if opens == 0:
+                                            break
+                                        j += 1
+
+                                    if j == n:
+                                        self.add_error(the_class.lines[i], "SYNTAX", "Function {function_name} was never closed", "Put a '}' where it should be closed.")
+                                    else:
+                                        function_lines = the_class.lines[i:j+1]
+                                        new_function = Function(function_name, params, return_type, access, function_lines)
+                                        test_function = None
+
+                                        if j != n - 1:
+                                            # check if there is a $ method
+                                            if len(the_class.lines[j+1].tokens) > 1:
+                                                if the_class.lines[j+1].tokens[1] == "$":
+                                                    # create another function that returns bool with same params
+                                                    # with the same name, but starting with $
+
+                                                    # now gather the lines for the test_function
+                                                    if len(the_class.lines[j+1].tokens) < 2:
+                                                        self.add_error(the_class.lines[i], "SYNTAX", "Expected '{' after '$'...", "Put '{' after '$'.")
+                                                    else:
+                                                        if the_class.lines[j+1].tokens[2] != "{":
+                                                            self.add_error(the_class.lines[i], "SYNTAX", "Expected '{' after '$'...", "Put '{' after '$'.")
+                                                        else:
+                                                            opens = 1
+                                                            test_function_lines_start = j
+                                                            j = j + 2
+                                                            while j < n:
+                                                                for x in the_class.lines[j].tokens:
+                                                                    if x == "{":
+                                                                        opens += 1
+                                                                    elif x == "}":
+                                                                        opens -= 1
+                                                                    if opens == 0:
+                                                                        break
+                                                                if opens == 0:
+                                                                    break
+                                                                j += 1
+                                                            if j == n:
+                                                                self.add_error(the_class.lines[i], "SYNTAX", "Function ${function_name} was never closed", "Put a '}' where it should be closed.")
+                                                            else:
+                                                                test_function_lines = the_class.lines[test_function_lines_start:j+1]
+
+                                                                test_function = Function("$" + function_name, params, "bool", access, test_function_lines)
+                                                                debug(f"Test Function parsed: name - ${function_name}\treturn_type - bool\tparams - {params}")
+
+                                                                
+
+                                        
+                                        the_class.functions.append(new_function)
+                                        if test_function != None:
+                                            the_class.functions.append(test_function)
+
+                                        the_class.lines = the_class.lines[0:i] + the_class.lines[j+1:]
+                                        i -= 1
+                                        n -= j - i
+
+            i += 1
+
+        # now recursively handle each of the subclasses to this class
+        for i in range(len(the_class.subclasses)):
+            the_class.subclasses[i] = self.handle_inside_class(the_class.subclasses[i])
 
 
-        pass
+        return the_class
 
 
 

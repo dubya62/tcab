@@ -55,6 +55,7 @@
 -   new
 -   asm
 -   static
+-   default
 
 
 ## Some ideas
