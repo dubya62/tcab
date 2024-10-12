@@ -978,7 +978,10 @@ class Compiler:
                 last = new_class
 
                 if j == len(result[i].relation) - 1:
-                    new_class.lines = [Line(["public", "class", new_class.name, "{"])] + result[i].remaining_lines + [Line(["}"])]
+                    specifier = "public"
+                    if len(result[i].relation) == 0:
+                        specifier = "protected"
+                    new_class.lines = [Line([specifier, "class", new_class.name, "{"])] + result[i].remaining_lines + [Line(["}"])]
                     new_class.subclasses = result[i].classes
 
 
