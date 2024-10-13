@@ -37,6 +37,36 @@ class ErrorMessage:
 RESERVED_WORDS = set(["int", "bool", "float", "short", "long", "double", "char", "void", "class", "public", "private", "protected", "extends", "return", "if", "for", "while", "import", "as", "use", "try", "catch", "switch", "case", "else", "new", "asm", "static", "extends"])
 
 
+class Directive:
+    """
+    A compiler directive
+    """
+    def __init__(self, tokens: list[str]):
+        self.tokens = tokens
+
+class Use:
+    """
+    A use (as) statement
+    use System.out.println;
+    or
+    use System.out.println as print;
+    """
+    def __init__(self, tokens: list[str]):
+        self.tokens = tokens
+        self.parse()
+
+    def parse(self):
+        use_index = self.tokens.index("use")
+        if "as" in self.tokens:
+            as_index = self.tokens.index("as")
+
+            self.first = self.tokens[use_index+1:as_index]
+            self.second = self.tokens[as_index+1:]
+        else:
+            self.first = self.tokens[use_index+1:]
+            self.second = self.tokens[-1]
+
+
 class Line:
     """
     A single line of code.
@@ -75,6 +105,8 @@ class Class(Block):
         self.parents = parents
         self.subclasses = []
         self.functions = []
+        self.directives = []
+        self.uses = []
 
     def get_scope(self):
         # check the first line of this classes' definition
@@ -114,6 +146,7 @@ class Function(Block):
         self.params = params
         self.return_type = return_type
         self.access = access
+        self.directives = []
 
 
 class Compiler:
@@ -981,7 +1014,7 @@ class Compiler:
                             j -= 1
                         j += 1
                     this_path = "/".join(this_path)
-                    this_path += ".crst"
+                    this_path += ".tcab"
 
                     # this path should represent a file.
                     # try to open the file in a new compiler object
@@ -1037,9 +1070,40 @@ class Parser:
         self.remaining_lines = remaining_lines
         self.classes = classes
 
+        # handle function blocks
         for x in range(len(self.classes)):
             self.classes[x] = self.handle_inside_class(self.classes[x])
 
+        # now we can handle compiler directives
+        debug("Parsing Compiler Directives...")
+        self.directives = []
+        self.handle_directives()
+
+        debug("Finished Parsing Compiler Directives!")
+
+        # the only remaining tokens should be as follows:
+        # in class scopes:
+        #   use statements
+        #   attributes (instance variables)
+        #
+        # in function scopes:
+        #   local variables
+        #   function calls
+        #   return
+        #   if, for, while, switch, case
+        #   
+
+        # if there are any more lines in the global scope, add an exception for each
+        for line in self.remaining_lines:
+            self.add_exception(line, "SYNTAX", "Invalid line declared in global scope...\n\tOnly compiler directives and import statments are allowed...", "Remove/alter the offending statement.")
+
+        # handle use (as) statements by adding them to Class objects
+        for i in range(len(self.classes)):
+            self.classes[x] = self.handle_use_statements(self.classes[x])
+
+        # we should be able to start rearranging lines of code
+        # and applying the compiler directives so that we have a sequential program
+        # we should be able to catch any syntax errors while do this
 
     def parse_line_number(self, line: Line):
         if len(line.tokens) > 0:
@@ -1253,19 +1317,177 @@ class Parser:
         return the_class
 
 
+    def handle_directives(self):
+        # find compiler directive in each scope (including global)
+        # and add them to the proper block
+        
+        # look through the remaining lines first
+        i = 0
+        n = len(self.remaining_lines)
+        while i < n:
+            curr = self.remaining_lines[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            m = len(curr)
+
+            if m > 0:
+                if curr[0] == "#":
+                    # this is a directive
+                    debug(f"Found compiler directive in global scope : {curr}")
+                    self.directives.append(Directive(self.remaining_lines[i]))
+                    del self.remaining_lines[i]
+                    i -= 1
+                    n -= 1
+
+            i += 1
+
+
+        # now handle classes
+        for i in range(len(self.classes)):
+            self.classes[i] = self.handle_class_directives(self.classes[i])
+
+
+    def handle_function_directives(self, the_function:Function):
+        # handle directives in the function's body
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            curr = the_function.lines[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            m = len(curr)
+
+            if m > 0:
+                if curr[0] == "#":
+                    # this is a directive
+                    debug(f"Found compiler directive in function {the_function.name} : {curr}")
+                    the_function.directives.append(Directive(the_function.lines[i]))
+                    del the_function.lines[i]
+                    i -= 1
+                    n -= 1
+            i += 1
+
+        return the_function
+
+
+    def handle_class_directives(self, the_class:Class):
+        # handle directives in the remaining section
+        i = 0
+        n = len(the_class.lines)
+        while i < n:
+            curr = the_class.lines[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            m = len(curr)
+
+            if m > 0:
+                if curr[0] == "#":
+                    # this is a directive
+                    debug(f"Found compiler directive in {str(the_class)} : {curr}")
+                    the_class.directives.append(Directive(the_class.lines[i]))
+                    del the_class.lines[i]
+                    i -= 1
+                    n -= 1
+            i += 1
+        
+
+        # handle directives in functions
+        for i in range(len(the_class.functions)):
+            the_class.functions[i] = self.handle_function_directives(the_class.functions[i])
+
+        # handle directives in subclasses (recursively)
+        for i in range(len(the_class.subclasses)):
+            the_class.subclasses[i] = self.handle_class_directives(the_class.subclasses[i])
+
+        return the_class
+
+
+    def handle_use_statements(self, the_class: Class):
+        # first, iterate through the lines of the class
+        # and look for the use
+
+        i = 0
+        n = len(the_class.lines)
+        while i < n:
+            curr = the_class.lines[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        del curr[j]
+                        j -= 1
+                j += 1
+
+            m = len(curr)
+
+            if m > 0:
+                if curr[0] == "use":
+                    # this is a use statement
+                    the_class.uses.append(Use(the_class.lines[i].tokens))
+                    del the_class.lines[i]
+                    i -= 1
+                    n -= 1
+            i += 1
+
+        # call recursively on all subclasses
+        for i in range(len(the_class.subclasses)):
+            the_class.subclasses[i] = self.handle_use_statements(the_class.subclasses[i])
+
+        return the_class
+
+
+class Sequencer:
+    """
+    This class will deal with laying out the program in a sequential manner.
+    This means it will have to handle errors in access specifiers and whether or not 
+    variables/functions/classes are defined.
+    It will also have to take compiler directives into account
+    """
+    def __init__(self, classes:list[Class], directives:list[Directive]):
+        self.classes = classes
+        self.directives = directives
 
 
 if __name__ == '__main__':
-    compiler = Compiler("test.crst")
+    all_exceptions = []
 
-    print()
-    [print(x) for x in compiler.EXCEPTIONS]
-    print()
-    [x.print() for x in compiler.classes]
+    compiler = Compiler("test.tcab")
+
+    all_exceptions += compiler.EXCEPTIONS
+
 
     # the compiler now has a massive tree of classes and all imports handled
     # the only remaining tokens should be compiler directives, functions, statements inside of functions, declarations, and use statements
     parser = Parser(compiler.remaining_lines, compiler.classes)
+
+
+    all_exceptions += parser.EXCEPTIONS
+
+    sequencer = Sequencer(parser.classes, parser.directives)
+
+    print()
+    print("EXCEPTIONS:")
+    [print(x) for x in all_exceptions]
+
+    
 
     
     

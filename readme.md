@@ -47,8 +47,6 @@
 -   import
 -   as
 -   use
--   try
--   catch
 -   switch
 -   case
 -   else
