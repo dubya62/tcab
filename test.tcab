@@ -2,34 +2,21 @@
 
 import example
 
-public class Test{
-    int test;
-
-    private class SubTest{
-        public class SubSubTest{
-
-        }
-
-        private class SubSubTest2{
-
-        }
+public class TestClass{
+    public int anotherFunction(){
+        return 10;
     }
 
-    private class AnotherTest{
+}
 
+public class Main{
+    public static void main(String[] args){
+        int test = 5;
+        String[] test2 = ["hello", "world"];
+
+        int result = TestClass.anotherFunction();
     }
-}
-
-public class Test2 extends Test{
-    int test2;
-
-    int testFunc(int testParam1, float testParam2){ if(2 == 0){return 1}
-
-        return 1;
-    }
-}
-
-class Testing extends Test2, Test {
-    void testing;
 
 }
+
+

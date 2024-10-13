@@ -18,6 +18,7 @@ def debug(message:str):
 # keep a list of exceptions to display just before writing the output
 class ErrorMessage:
     def __init__(self):
+        self.file = ""
         self.type = "N/A"
         self.line_number = "0"
         self.line = ""
@@ -27,6 +28,7 @@ class ErrorMessage:
     def __str__(self):
         result = "-" * 80
         result += "\n"
+        result += f"FILE: {self.file}\n"
         result += f"ERROR: ({self.type}) in line {self.line_number}:\n"
         result += f"LINE: \n\t{self.line}\n"
         result += f"CAUSE: \n\t{self.cause}\n"
@@ -107,6 +109,7 @@ class Class(Block):
         self.functions = []
         self.directives = []
         self.uses = []
+        self.file = ""
 
     def get_scope(self):
         # check the first line of this classes' definition
@@ -178,9 +181,10 @@ class Compiler:
         return data 
 
 
-    def add_error(self, line: Line, error_type: str, cause: str, suggestions: str):
+    def add_error(self, file:str, line: Line, error_type: str, cause: str, suggestions: str):
         # TODO: implement different types of errors
         result = ErrorMessage()
+        result.file = file
         result.type = error_type
         result.line_number = self.parse_line_number(line)
         if result.line_number == "0":
@@ -442,24 +446,24 @@ class Compiler:
                                 # handle different cases 
                                 handled = 0
                                 if "static" in curr:
-                                    self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
                                     handled = 1
                                 if "private" in curr:
-                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as both public and private...", "Remove access modifiers until \n\tthere are less than two of them...")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "You cannot define a class as both public and private...", "Remove access modifiers until \n\tthere are less than two of them...")
                                     handled = 1
                                 if "protected" in curr:
-                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as both public and protected...", "Remove access modifiers until \n\tthere are less than two of them...")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "You cannot define a class as both public and protected...", "Remove access modifiers until \n\tthere are less than two of them...")
                                     handled = 1
 
                                 # put at least some error message
                                 if handled == 0:
-                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class' after 'public'...", "Fix it or something?")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class' after 'public'...", "Fix it or something?")
 
 
                             else: # the next token is class
                                 # the next token should be the name of the class
                                 if m < 3:
-                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
                                 else:
                                     class_name = curr[2]
                                     
@@ -468,7 +472,7 @@ class Compiler:
 
                                     # the next token should be extends or {
                                     if m < 4:
-                                        self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                        self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
                                     else:
                                         # this is the end of the class definition
                                         if curr[3] == "{":
@@ -500,7 +504,7 @@ class Compiler:
 
                                             # if the class definition was never closed
                                             if opens != 0:
-                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
                                             
                                             inner_lines = result[i:j+1]
 
@@ -518,7 +522,7 @@ class Compiler:
                                         elif curr[3] == "extends":
                                             # get all parent classes
                                             if m < 5:
-                                                self.add_error(result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
 
                                             j = 4
                                             while j < m:
@@ -555,7 +559,7 @@ class Compiler:
 
                                             # if the class definition was never closed
                                             if opens != 0:
-                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
                                             
                                             inner_lines = result[i:j+1]
 
@@ -574,7 +578,7 @@ class Compiler:
                                         
                                         else:
                                             # throw an error if it neither extends nor 
-                                            self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                            self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
                                     
 
                     case "private":
@@ -585,24 +589,24 @@ class Compiler:
                                 # handle different cases 
                                 handled = 0
                                 if "static" in curr:
-                                    self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
                                     handled = 1
                                 if "public" in curr:
-                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as both private and public...", "Remove access modifiers until \n\tthere are less than two of them...")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "You cannot define a class as both private and public...", "Remove access modifiers until \n\tthere are less than two of them...")
                                     handled = 1
                                 if "protected" in curr:
-                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as protected...", "Remove 'protected'.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "You cannot define a class as protected...", "Remove 'protected'.")
                                     handled = 1
 
                                 # put at least some error message
                                 if handled == 0:
-                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class' after 'private'...", "Fix it or something?")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class' after 'private'...", "Fix it or something?")
 
 
                             else: # the next token is class
                                 # the next token should be the name of the class
                                 if m < 3:
-                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
                                 else:
                                     class_name = curr[2]
                                     
@@ -611,7 +615,7 @@ class Compiler:
 
                                     # the next token should be extends or {
                                     if m < 4:
-                                        self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                        self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
                                     else:
                                         # this is the end of the class definition
                                         if curr[3] == "{":
@@ -643,7 +647,7 @@ class Compiler:
 
                                             # if the class definition was never closed
                                             if opens != 0:
-                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
                                             
                                             inner_lines = result[i:j+1]
 
@@ -660,7 +664,7 @@ class Compiler:
                                         elif curr[3] == "extends":
                                             # get all parent classes
                                             if m < 5:
-                                                self.add_error(result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
 
                                             j = 4
                                             while j < m:
@@ -697,7 +701,7 @@ class Compiler:
 
                                             # if the class definition was never closed
                                             if opens != 0:
-                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
                                             
                                             inner_lines = result[i:j+1]
 
@@ -715,7 +719,7 @@ class Compiler:
                                         
                                         else:
                                             # throw an error if it neither extends nor 
-                                            self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                            self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
 
                     case "class":
                         # check if this is a class definition
@@ -725,27 +729,27 @@ class Compiler:
                                 # handle different cases 
                                 handled = 0
                                 if "static" in curr:
-                                    self.add_error(result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Classes cannot be defined as static...", "Remove the keyword static from this line.")
                                     handled = 1
                                 if "public" in curr:
-                                    self.add_error(result[i], "SYNTAX", "Keyword 'public' should go before 'class'", "Either change the order or remove 'public'.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Keyword 'public' should go before 'class'", "Either change the order or remove 'public'.")
                                     handled = 1
                                 if "private" in curr:
-                                    self.add_error(result[i], "SYNTAX", "Keyword 'private' should go before 'class'", "Either change the order or remove 'private'.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Keyword 'private' should go before 'class'", "Either change the order or remove 'private'.")
                                     handled = 1
                                 if "protected" in curr:
-                                    self.add_error(result[i], "SYNTAX", "You cannot define a class as protected...", "Remove 'protected'.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "You cannot define a class as protected...", "Remove 'protected'.")
                                     handled = 1
 
                                 # put at least some error message
                                 if handled == 0:
-                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class <ClassName> {'", "Fix it or something?")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected 'class <ClassName> {'", "Fix it or something?")
 
 
                             else: # the next token is class
                                 # the next token should be the name of the class
                                 if m < 2:
-                                    self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
+                                    self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected a class name after 'class'...", "Add a unique name for this scope.")
                                 else:
                                     class_name = curr[1]
                                     
@@ -754,7 +758,7 @@ class Compiler:
 
                                     # the next token should be extends or {
                                     if m < 3:
-                                        self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                        self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
                                     else:
                                         # this is the end of the class definition
                                         if curr[2] == "{":
@@ -786,7 +790,7 @@ class Compiler:
 
                                             # if the class definition was never closed
                                             if opens != 0:
-                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
                                             
                                             inner_lines = result[i:j+1]
 
@@ -803,7 +807,7 @@ class Compiler:
                                         elif curr[2] == "extends":
                                             # get all parent classes
                                             if m < 4:
-                                                self.add_error(result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "Expected one or more parent classes after 'extends'...", "Put the appropriate parent class(es)...\n\tSeparate each parent class with a ','")
 
                                             j = 3
                                             while j < m:
@@ -840,7 +844,7 @@ class Compiler:
 
                                             # if the class definition was never closed
                                             if opens != 0:
-                                                self.add_error(result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
+                                                self.add_error(self.filename, result[i], "SYNTAX", "'{' was never closed...", "Find the appropriate place to close it and put '}'")
                                             
                                             inner_lines = result[i:j+1]
 
@@ -859,13 +863,13 @@ class Compiler:
                                         
                                         else:
                                             # throw an error if it neither extends nor 
-                                            self.add_error(result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
+                                            self.add_error(self.filename, result[i], "SYNTAX", "Incorrect syntax...\n\tExpected either '{' or 'extends' after class name...", "Fix it...")
 
 
                     case "protected":
                         # throw an error if you define a class as protected
                         if "class" in curr:
-                            self.add_error(result[i], "SYNTAX", "Classes cannot be defined as protected...", "Remove the keyword static from this line.")
+                            self.add_error(self.filename, result[i], "SYNTAX", "Classes cannot be defined as protected...", "Remove the keyword static from this line.")
 
                             
                     case default:
@@ -891,13 +895,16 @@ class Compiler:
 
                 n = len(curr)
                 if n < 1:
-                    self.add_error(result[i], "SYNTAX", "Stray token found in global scope...", "Remove it.")
+                    self.add_error(self.filename, result[i], "SYNTAX", "Stray token found in global scope...", "Remove it.")
 
                 else:
                     if curr[0] == "import" or curr[0] == "#":
                         remaining_lines.append(result[i])
                     else:
-                        self.add_error(result[i], "SYNTAX", "Only classes, import statments, or compiler directives are allowed in the global scope...", "Remove the offending statement or put it in a class.")
+                        self.add_error(self.filename, result[i], "SYNTAX", "Only classes, import statments, or compiler directives are allowed in the global scope...", "Remove the offending statement or put it in a class.")
+
+        for x in self.classes:
+            x.file = self.filename
 
         # we now have all global lines
         # and all classes put into an array
@@ -1112,9 +1119,10 @@ class Parser:
         return "0"
 
 
-    def add_error(self, line: Line, error_type: str, cause: str, suggestions: str):
+    def add_error(self, file: str, line: Line, error_type: str, cause: str, suggestions: str):
         debug(f"Added error message... ({cause})")
         result = ErrorMessage()
+        result.file = file
         result.type = error_type
         result.line_number = self.parse_line_number(line)
         if result.line_number == "0":
@@ -1206,7 +1214,7 @@ class Parser:
                     # work backwards to find the name (directly before the last close parenthesis were opened
                     if m > 1:
                         if curr[-2] != ")":
-                            self.add_error(the_class.lines[i], "SYNTAX", "Expected ')' at end of parameters...", "Put a ')' directly before the '{'.")
+                            self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Expected ')' at end of parameters...", "Put a ')' directly before the '{'.")
                         else:
                             # work backwards until finding the opening of that parenthesis
                             j = m - 3
@@ -1223,10 +1231,10 @@ class Parser:
 
                             # the opener was never found
                             if j < 0:
-                                self.add_error(the_class.lines[i], "SYNTAX", "Expected '(' before list of parameters...", "Enclose parameters in '(' and ')'.")
+                                self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Expected '(' before list of parameters...", "Enclose parameters in '(' and ')'.")
                             else:
                                 if j == 0:
-                                    self.add_error(the_class.lines[i], "SYNTAX", "Expected function name before '('...", "Name the function.")
+                                    self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Expected function name before '('...", "Name the function.")
                                 else:
                                     params = curr[j+1:-2]
 
@@ -1254,9 +1262,9 @@ class Parser:
                                         j += 1
 
                                     if j == n:
-                                        self.add_error(the_class.lines[i], "SYNTAX", "Function {function_name} was never closed", "Put a '}' where it should be closed.")
+                                        self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Function {function_name} was never closed", "Put a '}' where it should be closed.")
                                     else:
-                                        function_lines = the_class.lines[i:j+1]
+                                        function_lines = the_class.lines[i+1:j]
                                         new_function = Function(function_name, params, return_type, access, function_lines)
                                         test_function = None
 
@@ -1269,10 +1277,10 @@ class Parser:
 
                                                     # now gather the lines for the test_function
                                                     if len(the_class.lines[j+1].tokens) < 2:
-                                                        self.add_error(the_class.lines[i], "SYNTAX", "Expected '{' after '$'...", "Put '{' after '$'.")
+                                                        self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Expected '{' after '$'...", "Put '{' after '$'.")
                                                     else:
                                                         if the_class.lines[j+1].tokens[2] != "{":
-                                                            self.add_error(the_class.lines[i], "SYNTAX", "Expected '{' after '$'...", "Put '{' after '$'.")
+                                                            self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Expected '{' after '$'...", "Put '{' after '$'.")
                                                         else:
                                                             opens = 1
                                                             test_function_lines_start = j
@@ -1289,9 +1297,9 @@ class Parser:
                                                                     break
                                                                 j += 1
                                                             if j == n:
-                                                                self.add_error(the_class.lines[i], "SYNTAX", "Function ${function_name} was never closed", "Put a '}' where it should be closed.")
+                                                                self.add_error(the_class.file, the_class.lines[i], "SYNTAX", "Function ${function_name} was never closed", "Put a '}' where it should be closed.")
                                                             else:
-                                                                test_function_lines = the_class.lines[test_function_lines_start:j+1]
+                                                                test_function_lines = the_class.lines[test_function_lines_start+1:j]
 
                                                                 test_function = Function("$" + function_name, params, "bool", access, test_function_lines)
                                                                 debug(f"Test Function parsed: name - ${function_name}\treturn_type - bool\tparams - {params}")
@@ -1464,6 +1472,161 @@ class Sequencer:
     def __init__(self, classes:list[Class], directives:list[Directive]):
         self.classes = classes
         self.directives = directives
+        self.EXCEPTIONS = []
+
+        self.trace()
+
+    def parse_line_number(self, line: Line):
+        if len(line.tokens) > 0:
+            if len(line.tokens[0]) > 0 and line.tokens[0][0] == '`':
+                return line.tokens[0][1:]
+        return "0"
+
+    def add_error(self, file: str, line: Line, error_type: str, cause: str, suggestions: str):
+        # TODO: implement different types of errors
+        result = ErrorMessage()
+        result.file = file
+        result.type = error_type
+        result.line_number = self.parse_line_number(line)
+        if result.line_number == "0":
+            result.line = "ERROR while fetching line"
+        else:
+            try:
+                result.line = self.data.split("\n")[int(result.line_number)]
+            except:
+                result.line = "ERROR while fetching line"
+        result.cause = cause
+        result.suggestions = suggestions
+        self.EXCEPTIONS.append(result)
+
+
+    def find_main_function(self):
+        # start static analysis of the trace of the code. This will start
+        # at the Main class in the global scope and execute the main method
+        
+        # first, make sure that there is a Main class
+        main_class_found = 0
+        main_class = None
+        for x in self.classes:
+            if x.name == "Main":
+                main_class_found = 1
+                main_class = x
+
+        if not main_class_found:
+            self.add_error("*", Line(["`-1"]), "SYNTAX", "A class named Main is required in the global context...", "Add a Main class to this file or use a different file as the global scope.")
+        else:
+            # now, make sure that there is a main method in that class
+            # the main method should either accept no args or a single String[] arg
+            main_function_found = 0
+            main_function = None
+            for x in main_class.functions:
+                if x.name == 'main':
+                    main_function_found = 1
+                    main_function = x
+            if not main_function_found:
+                self.add_error("*", Line(["`-1"]), "SYNTAX", "A function named main is required in a class named Main within the global context...", "Add a main function.")
+            else:
+                return main_class, main_function
+        return None, None
+
+
+    def trace(self):
+        # get the main class and function
+        main_class, main_function = self.find_main_function()
+
+        # kill the program and show the user that they need
+        # a main class and function if they do not have one
+        if main_class == None or main_function == None:
+            [print(x) for x in self.EXCEPTIONS]
+            exit()
+
+        builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "-", "+", ".", "*", "%", "/", "^", "!", "<", "=", ">", "~", "|", "&", "[", "]", ","]
+        builtins = set(builtins)
+        
+        result = []
+        # now, keep track of lines that are hit while deabstracting classes
+        # we can use #<number> to keep track of all variables
+        # since compiler directives are already taken care of
+        # store variables as "name_in_script":"#0"
+        current_number = 1
+        variables = {main_function.name:"#0"}
+        reverse_variables = {"#0":main_function.name} # keep the opposite of variables
+
+        # putting the current function's name will hopefully
+        # make recursive functions not cause an infinite
+        # loop in the compiler
+
+        i = 0
+        n = len(main_function.lines)
+        while i < n:
+            j = 0
+            m = len(main_function.lines[i].tokens)
+            while j < m:
+                # check each token to see if it is a line number
+                curr_token = main_function.lines[i].tokens[j]
+                if len(curr_token) > 0:
+                    # this is not a line number
+                    if curr_token[0] != "`":
+                        # this is not a builtin token
+                        if curr_token not in builtins:
+                            # if there is a dot after it, eat up tokens
+                            # until there is no more dot after
+                            curr_var = ""
+                            changed = 0
+                            while j + 1 < m and main_function.lines[i].tokens[j + 1] == ".":
+                                curr_var += f"{main_function.lines[i].tokens[j]}."
+                                del main_function.lines[i].tokens[j]
+                                del main_function.lines[i].tokens[j]
+                                m -= 2
+                                changed = 1
+
+                            curr_var += f"{main_function.lines[i].tokens[j]}"
+                            del main_function.lines[i].tokens[j]
+                            changed = 1
+                            m -= 1
+
+                            if curr_var not in variables:
+                                debug(f"Adding variable: {curr_var}")
+                                variables[curr_var] = f"#{current_number}"
+                                reverse_variables[f"#{current_number}"] = curr_var
+
+                                main_function.lines[i].tokens.insert(j, f"#{current_number}")
+                                m += 1
+
+                                # since this variable/function/class was previously undefined,
+                                # find its definition and put it directly before this line
+                                # do this recursively
+                                # add an ACCESS error if needed
+                                # first, check if this is the declaration
+
+                                # next, check use statements
+                                
+                                # next, check attributes in the current class
+
+                                # next, check functions in the current class
+                                
+                                # next, check the global scope 
+                                # (names with dots will require traversing classes)
+
+                                # if no declaration was found, throw an error
+                                
+                                # recursively call on declaration if it is a function
+                                
+                                current_number += 1
+                            else:
+                                # throw a redeclaration error if the token 
+                                # before the var is a declaration token
+                                pass
+                j += 1
+
+            i += 1
+
+        # the main function has now had its variables replaced
+        # with #<current_number>
+        
+
+        [print(x) for x in main_function.lines]
+        print(variables)
 
 
 if __name__ == '__main__':
@@ -1482,6 +1645,8 @@ if __name__ == '__main__':
     all_exceptions += parser.EXCEPTIONS
 
     sequencer = Sequencer(parser.classes, parser.directives)
+
+    all_exceptions += sequencer.EXCEPTIONS
 
     print()
     print("EXCEPTIONS:")
