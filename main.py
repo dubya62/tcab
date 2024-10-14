@@ -87,6 +87,7 @@ class Block:
     """
     def __init__(self, lines:list[str]):
         self.lines = lines
+        self.is_declaration = False
 
     def print(self):
         for line in self.lines:
@@ -110,6 +111,7 @@ class Class(Block):
         self.directives = []
         self.uses = []
         self.file = ""
+        self.is_global = False
 
     def get_scope(self):
         # check the first line of this classes' definition
@@ -1530,7 +1532,370 @@ class Sequencer:
         return None, None
 
 
+    def convert_operation_equals(self, the_function: Function):
+        # convert an operation and then equal sign to
+        # its equivalent simple operation
+        # i += 1
+        # => i = i + 1
+
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            # search through each line of the function
+            curr = the_function.lines[i].tokens.copy()
+            m = len(curr)
+            line_number = []
+
+            if m > 0:
+                if len(curr[0]) > 0:
+                    if curr[0][0] == "`":
+                        line_number.append(curr[0])
+                        del curr[0]
+                        m -= 1
+
+            j = 0
+            while j < m:
+                # if this token is an = sign, 
+                # we should check if the token before
+                # is an operator
+                if curr[j] == "=":
+                    if j > 0:
+                        match(curr[j-1]):
+                            case "+":
+                                del curr[j-1]
+                                m -= 1
+                                j -= 1
+                                curr = line_number + curr[0:j+1] + curr[0:j] + ["+", "("] + curr[j+1:] + [")"]
+                                the_function.lines[i].tokens = curr
+                            case "-":
+                                del curr[j-1]
+                                m -= 1
+                                j -= 1
+                                curr = line_number + curr[0:j+1] + curr[0:j] + ["-", "("] + curr[j+1:] + [")"]
+                                the_function.lines[i].tokens = curr
+                            case "*":
+                                del curr[j-1]
+                                m -= 1
+                                j -= 1
+                                curr = line_number + curr[0:j+1] + curr[0:j] + ["*", "("] + curr[j+1:] + [")"]
+                                the_function.lines[i].tokens = curr
+                            case "/":
+                                del curr[j-1]
+                                m -= 1
+                                j -= 1
+                                curr = line_number + curr[0:j+1] + curr[0:j] + ["/", "("] + curr[j+1:] + [")"]
+                                the_function.lines[i].tokens = curr
+                            case "%":
+                                del curr[j-1]
+                                m -= 1
+                                j -= 1
+                                curr = line_number + curr[0:j+1] + curr[0:j] + ["%", "("] + curr[j+1:] + [")"]
+                                the_function.lines[i].tokens = curr
+                            case "|":
+                                # check if ||
+                                if j-1 > 0:
+                                    if curr[j-2] == "|":
+                                        del curr[j-1]
+                                        m -= 1
+                                        j -= 1
+                                        del curr[j-1]
+                                        m -= 1
+                                        j -= 1
+                                        curr = line_number + curr[0:j+1] + curr[0:j] + ["|", "|", "("] + curr[j+1:] + [")"]
+                                        the_function.lines[i].tokens = curr
+                                    else:
+                                        del curr[j-1]
+                                        m -= 1
+                                        j -= 1
+                                        curr = line_number + curr[0:j+1] + curr[0:j] + ["|", "("] + curr[j+1:] + [")"]
+                                        the_function.lines[i].tokens = curr
+                                else:
+                                    del curr[j-1]
+                                    m -= 1
+                                    j -= 1
+                                    curr = line_number + curr[0:j+1] + curr[0:j] + ["|", "("] + curr[j+1:] + [")"]
+                                    the_function.lines[i].tokens = curr
+                            case "&":
+                                # check if &&
+                                if j-1 > 0:
+                                    if curr[j-2] == "&":
+                                        del curr[j-1]
+                                        m -= 1
+                                        j -= 1
+                                        del curr[j-1]
+                                        m -= 1
+                                        j -= 1
+                                        curr = line_number + curr[0:j+1] + curr[0:j] + ["&", "&", "("] + curr[j+1:] + [")"]
+                                        the_function.lines[i].tokens = curr
+                                    else:
+                                        del curr[j-1]
+                                        m -= 1
+                                        j -= 1
+                                        curr = line_number + curr[0:j+1] + curr[0:j] + ["&", "("] + curr[j+1:] + [")"]
+                                        the_function.lines[i].tokens = curr
+                                else:
+                                    del curr[j-1]
+                                    m -= 1
+                                    j -= 1
+                                    curr = line_number + curr[0:j+1] + curr[0:j] + ["&", "("] + curr[j+1:] + [")"]
+                                    the_function.lines[i].tokens = curr
+                j += 1
+            
+            i += 1
+
+        return the_function
+        
+
+    def break_declarations(self, the_function:Function):
+        # declarations can be in these two forms
+        # int test = 4;
+        # int test; test = 4;
+        
+        # function calls can use kwargs, but they must be inside parenthesis
+        # look for an equal sign outside of parenthesis
+        # after that, look for two strings (where neither is ".") to see what part is the name and what part is the declaration
+        # if there is no two tokens together, then this line just sets the variable
+        # the type can end in a word, *, or ]
+
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            curr = the_function.lines[i].tokens.copy()
+            m = len(curr)
+            j = 0
+
+            inside = 0
+            line_number = ""
+            while j < m:
+                # iterate through this line, looking for an equal sign
+                
+                # get rid of the line number
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        line_number = curr[j]
+                        del curr[j]
+                        m -= 1
+                        continue
+
+                # look for an equal sign that is not inside of parenthesis
+                if curr[j] == "(":
+                    inside += 1
+                elif curr[j] == ")":
+                    inside -= 1
+                elif curr[j] == "=":
+                    if inside == 0:
+                        is_normal = 1
+                        # make sure the token before was not !, >, or <
+                        # make sure the token after is not =
+                        if j > 0:
+                            if curr[j-1] in ["!", "<", ">"]:
+                                is_normal = 0
+                        if j < m - 1:
+                            if curr[j+1] == "=":
+                                is_normal = 0
+                                j += 1
+
+                        if is_normal:
+                            # now we need to see if this is just setting or a declaration
+                            # if it is a declaration, there will be a type that ends with ], *, or a word
+                            # followed by a name that starts with a word
+                            is_declaration = False
+
+                            the_equal = j
+                            j = 0
+                            words = 0
+                            while j < the_equal:
+                                # look for *, ], or a word followed by a word other than .
+                                if curr[j] == "*":
+                                    # next can be either *, a word, [, or ]
+                                    words = 0
+                                    if j + 1 < the_equal:
+                                        if curr[j+1] not in ["*", "[", "]"]:
+                                            is_declaration = True
+                                            break
+                                elif curr[j] == "[":
+                                    # skip until "]"
+                                    words = 0
+                                    while j < the_equal and curr[j] != "]":
+                                        j += 1
+                                    j -= 1
+                                elif curr[j] == "]":
+                                    # next can be [, =, or another word
+                                    words = 0
+                                    if j + 1 < the_equal:
+                                        if curr[j+1] not in ["[", "="]:
+                                            is_declaration = True
+                                            break
+                                elif curr[j] not in [".", "[", "]", "*"]:
+                                    # this is a word
+                                    words += 1
+                                j += 1
+                                
+                                if words == 2:
+                                    is_declaration = True
+                                    break
+
+
+                            if is_declaration:
+                                new_line = Line(the_function.lines[i].tokens[:the_equal+1])
+                                new_line.is_declaration = True
+                                the_function.lines.insert(i, new_line)
+                                i += 1
+                                n += 1
+
+                                this_line = []
+                                if line_number != "":
+                                    this_line.append(line_number)
+
+                                the_function.lines[i].tokens = this_line + curr[j-1:]
+
+                            break
+
+                j += 1
+            
+            i += 1
+            
+        return the_function
+
+
+    def convert_operations(self, the_function: Function):
+        # convert operations (+, -, *, /, ==, >, <, ~, |, &, [], %, ^, !, &&, ||)
+        # into function calls for the entire function
+        # + - plus
+        # - - minus
+        # - - negative
+        # * - times 
+        # / - dividedBy
+        # == - equals
+        # != - doesNotEqual
+        # > - isGreaterThan
+        # < - isLessThan
+        # >= - isGreaterThanOrEqualTo
+        # <= - isLessThanOrEqualTo
+        # ~ - not
+        # | - or 
+        # & - and
+        # [] - getElement 
+        # % - mod
+        # ^ - xor
+        # ! - logicalNot
+        # && - logicalNot
+        # || - logicalOr
+
+        operators = set(["+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<=", "~", "|", "&", "%", "^", "!", "&&", "||"])
+
+        # convert lines like i += 1 to i = i + 1
+        the_function = self.convert_operation_equals(the_function)
+
+        #  break declarations into multiple lines if assigned
+        the_function = self.break_declarations(the_function)
+
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            curr = the_function.lines[i].tokens
+            j = 0
+            m = len(curr)
+            while j < m:
+                if j + 1 < m:
+                    match(curr[j]):
+                        case "=":
+                            if curr[j+1] == "=":
+                                curr[j] = "=="
+                                del curr[j+1]
+                        case "<":
+                            if curr[j+1] == "=":
+                                curr[j] = "<="
+                                del curr[j+1]
+                            pass
+                        case ">":
+                            if curr[j+1] == "=":
+                                curr[j] = ">="
+                                del curr[j+1]
+                            pass
+                        case "&":
+                            if curr[j+1] == "&":
+                                curr[j] = "&&"
+                                del curr[j+1]
+                            pass
+                        case "|":
+                            if curr[j+1] == "|":
+                                curr[j] = "||"
+                                del curr[j+1]
+                        case "!":
+                            if curr[j+1] == "=":
+                                curr[j] = "!="
+                                del curr[j+1]
+
+                j += 1
+            i += 1
+
+        # handle negations, bitwise not, and logical not
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            curr = the_function.lines[i].tokens
+            m = len(curr)
+            j = 0
+            while j < m:
+                # handle bitwise not and logical not
+                if curr[j] == "~" or curr[j] == "!":
+                    curr.insert(j, 0)
+                elif curr[j] == "-":
+                    # this is a negation if there is an operator, =, or (
+                    pass
+                    
+                    
+
+
+                j += 1
+
+            i += 1
+
+        # operator:precedence
+        operators = {
+                "(":1,
+                ")":1,
+                "+":1,
+                "-":1,
+                "*":1,
+                "/":1,
+                "*":1,
+                "*":1,
+                "*":1,
+                "*":1,
+                "*":1,
+
+                
+
+                }
+
+
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            # search through the lines of the function for these operators
+            curr = the_function.lines[i].tokens
+            m = len(curr)
+
+            j = 0
+            while j < m:
+                # search through a single line for these operators
+                
+                
+                
+                j += 1
+                
+                
+            i += 1
+
+
+        return the_function
+
+
+
     def trace(self):
+
         # get the main class and function
         main_class, main_function = self.find_main_function()
 
@@ -1540,93 +1905,40 @@ class Sequencer:
             [print(x) for x in self.EXCEPTIONS]
             exit()
 
+        # now, convert operations for the function to function calls
+        main_function = self.convert_operations(main_function)
+
         builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "-", "+", ".", "*", "%", "/", "^", "!", "<", "=", ">", "~", "|", "&", "[", "]", ","]
         builtins = set(builtins)
-        
-        result = []
-        # now, keep track of lines that are hit while deabstracting classes
-        # we can use #<number> to keep track of all variables
-        # since compiler directives are already taken care of
-        # store variables as "name_in_script":"#0"
-        current_number = 1
-        variables = {main_function.name:"#0"}
-        reverse_variables = {"#0":main_function.name} # keep the opposite of variables
 
-        # putting the current function's name will hopefully
-        # make recursive functions not cause an infinite
-        # loop in the compiler
+        types = set(["int", "bool", "float", "short", "long", "double", "char", "void", "*"])
 
+        # iterate through the lines of the main function
         i = 0
         n = len(main_function.lines)
         while i < n:
-            j = 0
-            m = len(main_function.lines[i].tokens)
-            while j < m:
-                # check each token to see if it is a line number
-                curr_token = main_function.lines[i].tokens[j]
-                if len(curr_token) > 0:
-                    # this is not a line number
-                    if curr_token[0] != "`":
-                        # this is not a builtin token
-                        if curr_token not in builtins:
-                            # if there is a dot after it, eat up tokens
-                            # until there is no more dot after
-                            curr_var = ""
-                            changed = 0
-                            while j + 1 < m and main_function.lines[i].tokens[j + 1] == ".":
-                                curr_var += f"{main_function.lines[i].tokens[j]}."
-                                del main_function.lines[i].tokens[j]
-                                del main_function.lines[i].tokens[j]
-                                m -= 2
-                                changed = 1
+            # each line in the function should be one of the following:
+            #   a variable declaration
+            #   a function call
+            #   a mathematic operation
+            
 
-                            curr_var += f"{main_function.lines[i].tokens[j]}"
-                            del main_function.lines[i].tokens[j]
-                            changed = 1
-                            m -= 1
+            
 
-                            if curr_var not in variables:
-                                debug(f"Adding variable: {curr_var}")
-                                variables[curr_var] = f"#{current_number}"
-                                reverse_variables[f"#{current_number}"] = curr_var
-
-                                main_function.lines[i].tokens.insert(j, f"#{current_number}")
-                                m += 1
-
-                                # since this variable/function/class was previously undefined,
-                                # find its definition and put it directly before this line
-                                # do this recursively
-                                # add an ACCESS error if needed
-                                # first, check if this is the declaration
-
-                                # next, check use statements
-                                
-                                # next, check attributes in the current class
-
-                                # next, check functions in the current class
-                                
-                                # next, check the global scope 
-                                # (names with dots will require traversing classes)
-
-                                # if no declaration was found, throw an error
-                                
-                                # recursively call on declaration if it is a function
-                                
-                                current_number += 1
-                            else:
-                                # throw a redeclaration error if the token 
-                                # before the var is a declaration token
-                                pass
-                j += 1
 
             i += 1
 
-        # the main function has now had its variables replaced
-        # with #<current_number>
-        
 
+        
         [print(x) for x in main_function.lines]
-        print(variables)
+
+
+
+class Variable:
+    def __init__(self, num:int):
+        self.num = num
+        self.type = "void"
+
 
 
 if __name__ == '__main__':
@@ -1652,9 +1964,6 @@ if __name__ == '__main__':
     print("EXCEPTIONS:")
     [print(x) for x in all_exceptions]
 
-    
-
-    
     
 
 
