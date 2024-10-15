@@ -17,10 +17,7 @@ public class Main{
     public static void main(String[] args){
         int test = 5;
 
-        test += -5 / 2
-        test %= -2;
-
-        test[2] = test[2:-1]
+        test = test.test(3 + 2)
 
 
     }

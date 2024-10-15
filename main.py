@@ -1989,17 +1989,75 @@ class Sequencer:
 
         # negations, array accesses, and unary operators are now taken care of
 
-        # TODO: convert all operators to function calls 
         # operator:precedence
-        operators = {
-                "(":1,
-                ")":1,
-                "+":1,
-                "-":1,
-                "%":1,
-                "*":2,
-                "/":2,
+        operator_functions = {
+                ")":")",
+
+                "||":"logicalOr",
+                "&&":"logicalAnd",
+                "|":"or",
+                "^":"xor",
+                "&":"and",
+
+                "==":"equals",
+                "!=":"doesNotEqual",
+
+                ">":"isGreaterThan",
+                ">=":"isGreaterThanOrEqualTo",
+                "<":"isLessThan",
+                "<=":"isLessThanOrEqualTo",
+
+                "<<":"leftShift",
+                ">>":"rightShift",
+
+                "+":"plus",
+                "-":"minus",
+
+                "%":"mod",
+                "*":"times",
+                "/":"dividedBy",
+
+                "~":"not",
+                "!":"logicalNot",
+
+                "(":"(",
+
                 }
+        operators = {
+                ")":-1,
+
+                "||":0,
+                "&&":1,
+                "|":2,
+                "^":3,
+                "&":4,
+
+                "==":5,
+                "!=":5,
+
+                ">":6,
+                ">=":6,
+                "<":6,
+                "<=":6,
+
+                "<<":7,
+                ">>":7,
+
+                "+":8,
+                "-":8,
+
+                "%":9,
+                "*":9,
+                "/":9,
+
+                "~":10,
+                "!":10,
+
+                "(":11,
+
+                }
+
+        #operators = set(["+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<=", "~", "|", "&", "%", "^", "!", "&&", "||", ">>", "<<"])
 
         # x = 2 + 4 * 5
         # x = 2.plus(4.times(5))
@@ -2007,6 +2065,7 @@ class Sequencer:
         # x = (2 + 4) * 5
         # x = 2.plus(4).times(5)
 
+        op_stack = []
 
         i = 0
         n = len(the_function.lines)
@@ -2016,15 +2075,85 @@ class Sequencer:
             m = len(curr)
 
             j = 0
+            last_was_op = False
             while j < m:
+                print(op_stack)
                 # search through a single line for these operators
-                
-                
+                if curr[j] in operators:
+                    # we found an operator
+                    if len(op_stack) == 0:
+                        op_stack.append(curr[j])
+                        if curr[j] != "(":
+                            curr.insert(j, ".")
+                            j += 1
+                            m += 1
+                            curr.insert(j, operator_functions[curr[j]])
+                            j += 1
+                            m += 1
+                        curr[j] = "("
+                    elif operators[curr[j]] > operators[op_stack[-1]]:
+                        # if you find an operator with higher precendence, 
+                        # start this operator and continue the one before
+                        op_stack.append(curr[j])
+                        if curr[j] != "(":
+                            curr.insert(j, ".")
+                            j += 1
+                            m += 1
+                            curr.insert(j, operator_functions[curr[j]])
+                            j += 1
+                            m += 1
+                        curr[j] = "("
+
+                    else:
+                        # while this operator has lower or equal precedence,
+                        # close the top operator and pop it
+                        # then open this operator
+                        if curr[j] != "(":
+                            if curr[j] == ")":
+                                # pop from the stack until reaching (
+                                while len(op_stack) > 0 and operators[op_stack[-1]] != "(":
+                                    curr.insert(j, ")")
+                                    j += 1
+                                    m += 1
+                                    op_stack.pop()
+                                if len(op_stack) > 0:
+                                    curr.insert(j, ")")
+                                    j += 1
+                                    m += 1
+                                    op_stack.pop()
+                                
+
+                            else:
+
+                                while len(op_stack) > 0 and operators[curr[j]] <= operators[op_stack[-1]] and op_stack[-1] != "(":
+                                    curr.insert(j, ")")
+                                    j += 1
+                                    m += 1
+                                    op_stack.pop()
+                                op_stack.append(curr[j])
+                                curr.insert(j, ".")
+                                j += 1
+                                m += 1
+                                curr.insert(j, operator_functions[curr[j]])
+                                j += 1
+                                m += 1
+
+                                curr[j] = "("
+
+                    last_was_op = True
+                else:
+                    last_was_op = False
                 
                 j += 1
+
+            while len(op_stack) > 0:
+                curr.append(")")
+                op_stack.pop()
                 
                 
             i += 1
+
+        # all operators have now been correctly converted into functions
 
 
         return the_function
@@ -2057,8 +2186,7 @@ class Sequencer:
             # each line in the function should be one of the following:
             #   a variable declaration
             #   a function call
-            #   a mathematic operation
-            
+            #   a control flow statement (if, for, while, switch)
 
             
 
