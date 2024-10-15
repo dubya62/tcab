@@ -75,6 +75,7 @@ class Line:
     """
     def __init__(self, tokens: list[str]):
         self.tokens = tokens
+        self.is_declaration = False
 
     def __str__(self):
         return self.tokens.__str__()
@@ -184,7 +185,6 @@ class Compiler:
 
 
     def add_error(self, file:str, line: Line, error_type: str, cause: str, suggestions: str):
-        # TODO: implement different types of errors
         result = ErrorMessage()
         result.file = file
         result.type = error_type
@@ -209,7 +209,7 @@ class Compiler:
     def tokenize(self, lines:list[str]):
         debug("Tokenizing the source file...")
 
-        break_tokens = ["\n", "*", "$", "#", ".", ",", "[", "]", "<", ">", "&", "|", "\t", " ", "~", "^", "(", ")", "@", "%", "/", "=", "+", "-", ";", "'", '"', "{", "}"]
+        break_tokens = ["\n", "*", "$", "#", ".", ",", "[", "]", "<", ">", "&", "|", "\t", " ", "~", "^", "(", ")", "@", "%", "/", "=", "+", "-", ";", "'", '"', "{", "}", ":"]
         break_tokens = set(break_tokens)
 
         result = []
@@ -478,7 +478,6 @@ class Compiler:
                                     else:
                                         # this is the end of the class definition
                                         if curr[3] == "{":
-                                            # TODO: act as though anything else on this line is on the next line
 
                                             # for now, just start gathering lines into a class block
                                             # iterate through each token, trying to find the matching }
@@ -533,7 +532,6 @@ class Compiler:
                                                 j += 1
                                             parent_classes = curr[4:j]
                                             
-                                            # TODO: act as though anything else on this line is on the next line
 
                                             # for now, just start gathering lines into a class block
                                             # iterate through each token, trying to find the matching }
@@ -621,7 +619,6 @@ class Compiler:
                                     else:
                                         # this is the end of the class definition
                                         if curr[3] == "{":
-                                            # TODO: act as though anything else on this line is on the next line
 
                                             # for now, just start gathering lines into a class block
                                             # iterate through each token, trying to find the matching }
@@ -675,7 +672,6 @@ class Compiler:
                                                 j += 1
                                             parent_classes = curr[4:j]
                                             
-                                            # TODO: act as though anything else on this line is on the next line
 
                                             # for now, just start gathering lines into a class block
                                             # iterate through each token, trying to find the matching }
@@ -764,7 +760,6 @@ class Compiler:
                                     else:
                                         # this is the end of the class definition
                                         if curr[2] == "{":
-                                            # TODO: act as though anything else on this line is on the next line
 
                                             # for now, just start gathering lines into a class block
                                             # iterate through each token, trying to find the matching }
@@ -818,7 +813,6 @@ class Compiler:
                                                 j += 1
                                             parent_classes = curr[3:j]
                                             
-                                            # TODO: act as though anything else on this line is on the next line
 
                                             # for now, just start gathering lines into a class block
                                             # iterate through each token, trying to find the matching }
@@ -1485,7 +1479,6 @@ class Sequencer:
         return "0"
 
     def add_error(self, file: str, line: Line, error_type: str, cause: str, suggestions: str):
-        # TODO: implement different types of errors
         result = ErrorMessage()
         result.file = file
         result.type = error_type
@@ -1781,8 +1774,11 @@ class Sequencer:
         # ! - logicalNot
         # && - logicalNot
         # || - logicalOr
+        # [x:y] - splice
+        # << - leftShift
+        # >> - rightShift
 
-        operators = set(["+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<=", "~", "|", "&", "%", "^", "!", "&&", "||"])
+        operators = set(["+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<=", "~", "|", "&", "%", "^", "!", "&&", "||", ">>", "<<"])
 
         # convert lines like i += 1 to i = i + 1
         the_function = self.convert_operation_equals(the_function)
@@ -1807,12 +1803,24 @@ class Sequencer:
                             if curr[j+1] == "=":
                                 curr[j] = "<="
                                 del curr[j+1]
-                            pass
+                            elif curr[j+1] == "<":
+                                curr[j] = "<<"
+                                del curr[j+1]
                         case ">":
                             if curr[j+1] == "=":
                                 curr[j] = ">="
                                 del curr[j+1]
-                            pass
+                            elif curr[j+1] == ">":
+                                curr[j] = ">>"
+                                del curr[j+1]
+                        case "<<":
+                            if curr[j+1] == "=":
+                                curr[j] = "<<="
+                                del curr[j+1]
+                        case ">>":
+                            if curr[j+1] == "=":
+                                curr[j] = ">>="
+                                del curr[j+1]
                         case "&":
                             if curr[j+1] == "&":
                                 curr[j] = "&&"
@@ -1842,16 +1850,146 @@ class Sequencer:
                 if curr[j] == "~" or curr[j] == "!":
                     curr.insert(j, 0)
                 elif curr[j] == "-":
-                    # this is a negation if there is an operator, =, or (
-                    pass
-                    
-                    
+                    # this is a negation if there is an operator, =, [, or ( directly before
+                    if j > 0:
+                        if curr[j-1] in operators or curr[j-1] in ["=", "[", "(", ",", ":"]:
+                            # convert to .negate()
+                            curr[j] = "("
+                            # the end of the negation will be directly before EOL or any operator
+                            while j < m:
+                                if curr[j] in operators or curr[j] in [")", "}", "]", "="]:
+                                    break
 
+                                j += 1
+                            curr.insert(j, ")")
+                            j += 1
+                            curr.insert(j, ".")
+                            j += 1
+                            curr.insert(j, "negate")
+                            j += 1
+                            curr.insert(j, "(")
+                            j += 1
+                            curr.insert(j, ")")
 
                 j += 1
 
             i += 1
 
+
+        # convert array accesses/splices
+        i = 0
+        n = len(the_function.lines)
+        while i < n:
+            curr = the_function.lines[i].tokens
+            m = len(curr)
+            j = 0
+
+            # only change this on lines that are not declarations
+            if the_function.lines[i].is_declaration == False:
+                while j < m:
+                    # look for [ and ]
+                    if curr[j] == "[":
+                        starti = i
+                        startj = j
+                        is_splice = False
+                        splicei = -1
+                        splicej = -1
+                        opens = 0
+                        while i < n:
+                            curr = the_function.lines[i].tokens
+                            m = len(curr)
+                            while j < m:
+                                # find the end of the access
+                                if curr[j] == "[":
+                                    opens += 1
+                                if curr[j] == "]":
+                                    opens -= 1
+                                if opens == 0:
+                                    break
+                                if opens == 1:
+                                    if curr[j] == ":":
+                                        is_splice = True
+                                        splicei = i 
+                                        splicej = j
+                                j += 1
+                            if opens == 0:
+                                break
+                            j = 0
+                            i += 1
+                        # found either the closing bracket or the end of the function
+                        if i == n and j == m:
+                            self.add_error("*", the_function.lines[starti], "SYNTAX", "'[' was unmatched...", "Add matching ']'.")
+                        else:
+                            # this can be an access, a splice, or an array declaration
+                            # if it is an access or a slice, there will be a word, ), or ] before it
+                            curr = the_function.lines[starti].tokens
+                            m = len(curr)
+                            is_splice_or_access = False
+                            if startj > 0:
+                                if curr[startj-1] != "=" and (curr[startj-1] not in operators or curr[startj-1] in [")", "]"]):
+                                    # this is a slice or access
+                                    is_splice_or_access = True
+
+                                    if is_splice:
+                                        # replace : with ,
+                                        # replace [ with ( and ] with )
+                                        # put splice before (
+                                        the_function.lines[splicei].tokens[splicej] = ","
+                                        the_function.lines[starti].tokens[startj] = "("
+                                        the_function.lines[i].tokens[j] = ")"
+                                        the_function.lines[starti].tokens.insert(startj, "splice")
+                                        the_function.lines[starti].tokens.insert(startj, ".")
+                                        startj += 2
+                                        splicej += 2
+                                        j += 2
+                                        m += 2
+
+                                        # set the arguments of splice to 0 if not present
+                                        if splicei == starti and splicej - startj == 1:
+                                            print("HERE1")
+                                            the_function.lines[splicei].tokens.insert(splicej, "0")
+                                            m += 1
+                                            splicej += 1
+                                            j += 1
+                                        if i == splicei and j - splicej == 1:
+                                            print("HERE2")
+                                            the_function.lines[i].tokens.insert(splicej+1, "0")
+                                            m += 1
+                                            j += 1
+
+                                        i = starti
+                                    else:
+                                        # a simple access
+                                        the_function.lines[starti].tokens[startj] = "("
+                                        the_function.lines[i].tokens[j] = ")"
+                                        the_function.lines[starti].tokens.insert(startj, "getElement")
+                                        the_function.lines[starti].tokens.insert(startj, ".")
+
+                                        m += 2
+                                        i = starti
+                                        j = startj + 2
+                            
+                            if not is_splice_or_access:
+                                # this is a declaration. join this onto one line
+                                while i > starti:
+                                    the_function.lines[i-1].tokens += the_function.lines[i].tokens
+                                    del the_function.lines[i]
+                                    i -= 1
+                                    n -= 1
+
+                                i = starti
+                                j = startj
+                        
+
+                    j += 1
+
+            i += 1
+        
+
+
+        # negations, array accesses, and unary operators are now taken care of
+
+        # TODO: convert all operators to function calls and rearrange them in order
         # operator:precedence
         operators = {
                 "(":1,
@@ -1860,14 +1998,6 @@ class Sequencer:
                 "-":1,
                 "*":1,
                 "/":1,
-                "*":1,
-                "*":1,
-                "*":1,
-                "*":1,
-                "*":1,
-
-                
-
                 }
 
 
