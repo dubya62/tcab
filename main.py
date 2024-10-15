@@ -1989,16 +1989,23 @@ class Sequencer:
 
         # negations, array accesses, and unary operators are now taken care of
 
-        # TODO: convert all operators to function calls and rearrange them in order
+        # TODO: convert all operators to function calls 
         # operator:precedence
         operators = {
                 "(":1,
                 ")":1,
                 "+":1,
                 "-":1,
-                "*":1,
-                "/":1,
+                "%":1,
+                "*":2,
+                "/":2,
                 }
+
+        # x = 2 + 4 * 5
+        # x = 2.plus(4.times(5))
+
+        # x = (2 + 4) * 5
+        # x = 2.plus(4).times(5)
 
 
         i = 0
