@@ -17,7 +17,7 @@ public class Main{
     public static void main(String[] args){
         int test = 5;
 
-        test = test.test(3 + 2)
+        test = test.test(3 + 2 / 8, 5 << 6)
 
 
     }

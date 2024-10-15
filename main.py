@@ -2024,6 +2024,7 @@ class Sequencer:
 
                 }
         operators = {
+                ",":-2,
                 ")":-1,
 
                 "||":0,
@@ -2077,7 +2078,6 @@ class Sequencer:
             j = 0
             last_was_op = False
             while j < m:
-                print(op_stack)
                 # search through a single line for these operators
                 if curr[j] in operators:
                     # we found an operator
@@ -2111,18 +2111,24 @@ class Sequencer:
                         if curr[j] != "(":
                             if curr[j] == ")":
                                 # pop from the stack until reaching (
-                                while len(op_stack) > 0 and operators[op_stack[-1]] != "(":
+                                while len(op_stack) > 0 and op_stack[-1] != "(":
                                     curr.insert(j, ")")
                                     j += 1
                                     m += 1
                                     op_stack.pop()
+
+                                j += 1
                                 if len(op_stack) > 0:
-                                    curr.insert(j, ")")
-                                    j += 1
-                                    m += 1
                                     op_stack.pop()
                                 
 
+                            elif curr[j] == ",":
+                                # pop from the stack until reaching (
+                                while len(op_stack) > 0 and op_stack[-1] != "(":
+                                    curr.insert(j, ")")
+                                    j += 1
+                                    m += 1
+                                    op_stack.pop()
                             else:
 
                                 while len(op_stack) > 0 and operators[curr[j]] <= operators[op_stack[-1]] and op_stack[-1] != "(":
@@ -2153,14 +2159,16 @@ class Sequencer:
                 
             i += 1
 
-        # all operators have now been correctly converted into functions
 
+        # all operators have now been correctly converted into function calls
 
         return the_function
 
 
 
     def trace(self):
+
+        debug("Tracing...")
 
         # get the main class and function
         main_class, main_function = self.find_main_function()
@@ -2192,6 +2200,12 @@ class Sequencer:
 
 
             i += 1
+
+
+        # TODO: recursively search for and substitute the definition of functions as they are needed
+        # substitute directly above setting the result
+        # replace all variable names with #<varnum> and throw an error if something private is accessed
+        # need to keep track of which functions call which so that recursive functions are not infinitely defined
 
 
         
