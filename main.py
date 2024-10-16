@@ -112,7 +112,7 @@ class Class(Block):
         self.directives = []
         self.uses = []
         self.file = ""
-        self.is_global = False
+        self.is_global = True
 
     def get_scope(self):
         # check the first line of this classes' definition
@@ -1027,6 +1027,10 @@ class Compiler:
                         # update your imports
                         self.imports = new_compiler.imports
                         result.append(new_compiler)
+
+                        # make imported classes not global (for access protection later)
+                        for x in range(len(new_compiler.classes)):
+                            new_compiler.classes[x].is_global = False
                     else:
                         debug("This file has already been imported... ignoring")
 
@@ -1038,6 +1042,7 @@ class Compiler:
             last = None
             for j in range(len(result[i].relation)):
                 new_class = Class(result[i].relation[j], [], [])
+                new_class.is_global = False
                 if last == None:
                     new_class.lines = [Line(["protected", "class", new_class.name, "{"]), Line(["}"])]
                     self.classes.append(new_class)
@@ -1722,6 +1727,10 @@ class Sequencer:
                                 elif curr[j] not in [".", "[", "]", "*"]:
                                     # this is a word
                                     words += 1
+                                else:
+                                    # reset word counter
+                                    words = 0
+
                                 j += 1
                                 
                                 if words == 2:
@@ -2165,6 +2174,109 @@ class Sequencer:
         return the_function
 
 
+    def number_variables(self, the_function:Function, starting_number:int=0):
+        # each line in the function should be one of the following:
+        #   a variable declaration
+        #   a function call
+        #   a control flow statement (if, for, while, switch)
+
+        # should perform access checking to make sure that nothing defies access specifiers
+        
+        builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "[", "]", ",", "while", "for", "switch", "case", "return", "="]
+        builtins = set(builtins)
+
+        types = set(["int", "bool", "float", "short", "long", "double", "char", "void", "*"])
+
+
+
+
+
+        # "name":"#<varnum>"
+        found = {}
+        # "#<varnum>":"name"
+        reverse = {}
+
+        i = 0
+        n = len(the_function.lines)
+        # iterate through the lines of the function
+        line_number = []
+        while i < n:
+            curr = the_function.lines[i].tokens.copy()
+            j = 0
+            while j < len(curr):
+                # get rid of line number tokens
+                if len(curr[j]) > 0:
+                    if curr[j][0] == '`':
+                        line_number = [curr[j]]
+                        del curr[j]
+                        j -= 1
+
+                # combine all $ with the token after them
+                if curr[j] == "$":
+                    if m > j + 1:
+                        curr[j] = curr[j] + curr[j + 1]
+                        del curr[j+1]
+                        m -= 1
+
+                j += 1
+            j = 0
+            m = len(curr)
+
+            # iterate through the tokens in this line
+            while j < m:
+                if curr[j] != "(":
+                    # if the next token is . 
+                    # keep combining tokens until it is not
+                    added = ""
+                    while j + 1 < m and (added == "." or curr[j+1] == "."):
+                        added = curr[j+1]
+                        curr[j] = curr[j] + curr[j+1]
+                        del curr[j+1]
+                        m -= 1
+
+                    # check if the combined token was found
+                    if curr[j] not in builtins:
+                        if curr[j] not in found:
+                            debug(f"Found new variable: {curr[j]}")
+                            varnum = f"#{starting_number}"
+                            found[curr[j]] = varnum
+                            reverse[varnum] = curr[j]
+                            starting_number += 1
+
+                            # TODO
+                            # check to make sure that the new variable
+                            # does not violate access specifiers
+                            # we first need to know the type of each thing
+                            # built-ins such as 2, 2.3, "hello", or 'c' can be treated as global
+                            
+
+                    if curr[j] in found:
+                        curr[j] = found[curr[j]]
+                        
+                j += 1
+
+            # recreate the line with the changes
+            the_function.lines[i].tokens = line_number + curr
+
+            i += 1
+
+        print(found)
+
+        return the_function
+
+
+
+    def trace_function(self, the_function:Function):
+        current_number = 0
+
+        the_function = self.convert_operations(the_function)
+
+        the_function = self.number_variables(the_function, current_number)
+
+        # need to keep track of which functions call which so that recursive functions are not infinitely defined
+
+        return the_function
+
 
     def trace(self):
 
@@ -2179,36 +2291,8 @@ class Sequencer:
             [print(x) for x in self.EXCEPTIONS]
             exit()
 
-        # now, convert operations for the function to function calls
-        main_function = self.convert_operations(main_function)
+        main_function = self.trace_function(main_function)
 
-        builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "-", "+", ".", "*", "%", "/", "^", "!", "<", "=", ">", "~", "|", "&", "[", "]", ","]
-        builtins = set(builtins)
-
-        types = set(["int", "bool", "float", "short", "long", "double", "char", "void", "*"])
-
-        # iterate through the lines of the main function
-        i = 0
-        n = len(main_function.lines)
-        while i < n:
-            # each line in the function should be one of the following:
-            #   a variable declaration
-            #   a function call
-            #   a control flow statement (if, for, while, switch)
-
-            
-
-
-            i += 1
-
-
-        # TODO: recursively search for and substitute the definition of functions as they are needed
-        # substitute directly above setting the result
-        # replace all variable names with #<varnum> and throw an error if something private is accessed
-        # need to keep track of which functions call which so that recursive functions are not infinitely defined
-
-
-        
         [print(x) for x in main_function.lines]
 
 
@@ -2242,8 +2326,6 @@ if __name__ == '__main__':
     print()
     print("EXCEPTIONS:")
     [print(x) for x in all_exceptions]
-
-    
 
 
 
