@@ -18,10 +18,12 @@ public class TestClass{
 
 public class Main{
     public static void main(String[] args){
-        int test = 5;
+        float test = 5.3;
 
         TestClass.testVariable = TestClass.func2(TestClass.testVariable);
         TestClass.testVariable *= 8 + 2 / 3
+
+        String result = "Hello, World!";
 
     } 
 

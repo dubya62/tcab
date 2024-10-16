@@ -2174,7 +2174,7 @@ class Sequencer:
         return the_function
 
 
-    def number_variables(self, the_function:Function, starting_number:int=0):
+    def number_variables(self, the_function:Function, starting_number:int=0, call_stack=[], is_global=True):
         # each line in the function should be one of the following:
         #   a variable declaration
         #   a function call
@@ -2185,16 +2185,47 @@ class Sequencer:
         builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "[", "]", ",", "while", "for", "switch", "case", "return", "="]
         builtins = set(builtins)
 
-        types = set(["int", "bool", "float", "short", "long", "double", "char", "void", "*"])
-
-
-
+        builtin_types = set(["int", "bool", "float", "short", "long", "double", "char", "void", "*"])
 
 
         # "name":"#<varnum>"
         found = {}
         # "#<varnum>":"name"
         reverse = {}
+        # "#<varnum>":"type"
+        types = {}
+
+
+        # parse through the function's params
+        curr = " ".join(the_function.params)
+        curr = curr.split(" , ")
+        new_params = []
+        curr = [x.strip() for x in curr]
+        for x in range(len(curr)):
+            splitted = curr[x].split(" ")
+            varname = splitted[-1]
+            vartype = splitted[:-1]
+            vartype = "".join(vartype).split("|")
+            for y in range(len(vartype)):
+                if y not in builtin_types:
+                    varnum = f"#{starting_number}"
+                    found[vartype[y]] = varnum
+                    reverse[varnum] = vartype[y]
+                    types[varnum] = ["class"]
+                    vartype[y] = varnum
+                    starting_number += 1
+            
+            varnum = f"#{starting_number}"
+            found[varname] = varnum
+            reverse[varnum] = varname
+            types[varnum] = vartype
+            
+            new_params.append(varnum)
+
+            starting_number += 1
+
+        the_function.params = new_params
+
 
         i = 0
         n = len(the_function.lines)
@@ -2237,17 +2268,44 @@ class Sequencer:
                     # check if the combined token was found
                     if curr[j] not in builtins:
                         if curr[j] not in found:
-                            debug(f"Found new variable: {curr[j]}")
-                            varnum = f"#{starting_number}"
-                            found[curr[j]] = varnum
-                            reverse[varnum] = curr[j]
-                            starting_number += 1
+                            # make sure this is not just a float
+                            try:
+                                float(curr[j])
+                            except:
+                                debug(f"Found new variable: {curr[j]}")
+                                varnum = f"#{starting_number}"
+                                found[curr[j]] = varnum
+                                reverse[varnum] = curr[j]
+
+                                # determine the type of this variable
+                                # if it is the first token in a declaration
+                                if the_function.lines[i].is_declaration:
+                                    if j == 0:
+                                        # it is a class
+                                        types[varnum] = ["class"]
+                                    elif j == m - 1:
+                                        # if it is the last token in a declaration,
+                                        # it is either the type right before it
+                                        # or it is inferred (*)
+                                        types[varnum] = ["".join(curr[:j])]
+
+
+                                starting_number += 1
 
                             # TODO
                             # check to make sure that the new variable
                             # does not violate access specifiers
+
+                            # 
+
+
                             # we first need to know the type of each thing
                             # built-ins such as 2, 2.3, "hello", or 'c' can be treated as global
+                            # if the variable was a function, make sure it is a valid access
+                            # recursively modify and add them
+                            # directly above where they are used
+                            # make sure to keep track of the function call trace so that recursive
+                            # functions are not recursively added
                             
 
                     if curr[j] in found:
@@ -2261,8 +2319,9 @@ class Sequencer:
             i += 1
 
         print(found)
+        print(types)
 
-        return the_function
+        return the_function, found, reverse, types
 
 
 
@@ -2271,7 +2330,7 @@ class Sequencer:
 
         the_function = self.convert_operations(the_function)
 
-        the_function = self.number_variables(the_function, current_number)
+        the_function = self.number_variables(the_function, current_number, ["Main.main"])
 
         # need to keep track of which functions call which so that recursive functions are not infinitely defined
 
@@ -2291,7 +2350,7 @@ class Sequencer:
             [print(x) for x in self.EXCEPTIONS]
             exit()
 
-        main_function = self.trace_function(main_function)
+        main_function, found, reverse, types = self.trace_function(main_function)
 
         [print(x) for x in main_function.lines]
 
@@ -2301,7 +2360,6 @@ class Variable:
     def __init__(self, num:int):
         self.num = num
         self.type = "void"
-
 
 
 if __name__ == '__main__':
