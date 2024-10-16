@@ -1,6 +1,5 @@
 
 
-import example
 
 public class TestClass{
 
@@ -17,6 +16,10 @@ public class TestClass{
 }
 
 public class Main{
+
+    use TestClass.anotherFunction as TestClass.func2
+    int constant = 3;
+
     public static void main(String[] args){
         float test = 5.3;
 

@@ -62,8 +62,8 @@ class Use:
         if "as" in self.tokens:
             as_index = self.tokens.index("as")
 
-            self.first = self.tokens[use_index+1:as_index]
-            self.second = self.tokens[as_index+1:]
+            self.first = "".join(self.tokens[use_index+1:as_index])
+            self.second = "".join(self.tokens[as_index+1:])
         else:
             self.first = self.tokens[use_index+1:]
             self.second = self.tokens[-1]
@@ -113,6 +113,7 @@ class Class(Block):
         self.uses = []
         self.file = ""
         self.is_global = True
+        self.converted = False
 
     def get_scope(self):
         # check the first line of this classes' definition
@@ -1454,6 +1455,7 @@ class Parser:
                     del the_class.lines[i]
                     i -= 1
                     n -= 1
+
             i += 1
 
         # call recursively on all subclasses
@@ -1955,13 +1957,11 @@ class Sequencer:
 
                                         # set the arguments of splice to 0 if not present
                                         if splicei == starti and splicej - startj == 1:
-                                            print("HERE1")
                                             the_function.lines[splicei].tokens.insert(splicej, "0")
                                             m += 1
                                             splicej += 1
                                             j += 1
                                         if i == splicei and j - splicej == 1:
-                                            print("HERE2")
                                             the_function.lines[i].tokens.insert(splicej+1, "0")
                                             m += 1
                                             j += 1
@@ -2174,7 +2174,7 @@ class Sequencer:
         return the_function
 
 
-    def number_variables(self, the_function:Function, starting_number:int=0, call_stack=[], is_global=True):
+    def number_variables(self, the_function:Function, the_class:Class, starting_number:int=0, call_stack=[], is_global=True):
         # each line in the function should be one of the following:
         #   a variable declaration
         #   a function call
@@ -2296,16 +2296,56 @@ class Sequencer:
                             # check to make sure that the new variable
                             # does not violate access specifiers
 
-                            # 
-
-
-                            # we first need to know the type of each thing
                             # built-ins such as 2, 2.3, "hello", or 'c' can be treated as global
-                            # if the variable was a function, make sure it is a valid access
-                            # recursively modify and add them
-                            # directly above where they are used
-                            # make sure to keep track of the function call trace so that recursive
-                            # functions are not recursively added
+                            is_builtin_type = False
+                            splitted = curr[j].split(".")[0]
+                            try:
+                                int(splitted[0])
+                                is_builtin_type = True
+                            except:
+                                pass
+
+                            if len(curr[j]) > 0:
+                                if curr[j][0] == '"' and curr[j][-1] == '"':
+                                    is_builtin_type = True
+                                elif curr[j][0] == "'" and curr[j][-1] == "'":
+                                    is_builtin_type = True
+                            
+
+                            if not is_builtin_type:
+                                # local scope is already checked (and args)
+
+                                # TODO: check parent (extended) classes to see if it exists there
+
+                                # check use statements to see if it is an alias
+                                aliased = False
+                                for k in range(len(the_class.uses)):
+                                    if the_class.uses[k].second == curr[j]:
+                                        # this is something that was aliased
+                                        # replace curr[j] with the thing that was aliased
+                                        curr[j] = the_class.uses[k].first
+                                        aliased = True
+                                        break
+                                if aliased:
+                                    # rerun the loop on the same variable now that it is aliased
+                                    continue
+                                
+                                # check instance variables (the only lines left in the class scope
+                                if not the_class.converted:
+                                    the_class = self.convert_operations(the_class)
+                                    the_class.converted = True
+                                    # TODO
+
+                                # check other classes if this is a global class
+
+
+                                # we first need to know the type of each thing
+                                # if the variable was a function, make sure it is a valid access
+                                # recursively modify and add them
+                                # directly above where they are used
+                                # make sure to keep track of the function call trace so that recursive
+                                # functions are not recursively added
+                                pass
                             
 
                     if curr[j] in found:
@@ -2325,14 +2365,12 @@ class Sequencer:
 
 
 
-    def trace_function(self, the_function:Function):
+    def trace_function(self, the_function:Function, the_class:Class):
         current_number = 0
 
         the_function = self.convert_operations(the_function)
 
-        the_function = self.number_variables(the_function, current_number, ["Main.main"])
-
-        # need to keep track of which functions call which so that recursive functions are not infinitely defined
+        the_function, found, reverse, types = self.number_variables(the_function, the_class, current_number, ["Main.main"])
 
         return the_function
 
@@ -2350,7 +2388,7 @@ class Sequencer:
             [print(x) for x in self.EXCEPTIONS]
             exit()
 
-        main_function, found, reverse, types = self.trace_function(main_function)
+        main_function = self.trace_function(main_function, main_class)
 
         [print(x) for x in main_function.lines]
 
