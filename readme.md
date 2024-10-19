@@ -1,4 +1,4 @@
-# Programming language
+# Programming language (WIP on legacy version - will rewrite the transpiler in the new language)
 
 ## Idea
 -   This will be a high level, object oriented programming language
