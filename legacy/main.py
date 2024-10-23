@@ -2182,7 +2182,7 @@ class Sequencer:
 
         # should perform access checking to make sure that nothing defies access specifiers
         
-        builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "[", "]", ",", "while", "for", "switch", "case", "return", "="]
+        builtins = ["int", "bool", "float", "short", "long", "double", "char", "void", "if", "(", ")", "{", "}", "[", "]", ",", "while", "for", "switch", "case", "return", "=", "break", "continue", "private", "public", "protected", "static", ","]
         builtins = set(builtins)
 
         builtin_types = set(["int", "bool", "float", "short", "long", "double", "char", "void", "*"])
@@ -2287,7 +2287,13 @@ class Sequencer:
                                         # if it is the last token in a declaration,
                                         # it is either the type right before it
                                         # or it is inferred (*)
-                                        types[varnum] = ["".join(curr[:j])]
+                                        resulting_type = ""
+                                        for k in range(j-1, -1, -1):
+                                            if curr[k] not in ["private", "public", "protected", "static"]:
+                                                resulting_type = curr[k] + resulting_type
+                                            else:
+                                                break
+                                        types[varnum] = [resulting_type]
 
 
                                 starting_number += 1
@@ -2313,9 +2319,20 @@ class Sequencer:
                             
 
                             if not is_builtin_type:
+                                # make sure that the type exists and find function call definitions
+
+                                debug(f"{curr[j]} is not a builtin")
+
+                                # if this is a declaration, we are good
+                                if the_function.lines[i].is_declaration:
+                                    debug(f"this was a declaration of {curr[j]}")
+                                    continue
+                                
+
                                 # local scope is already checked (and args)
 
                                 # TODO: check parent (extended) classes to see if it exists there
+                                
 
                                 # check use statements to see if it is an alias
                                 aliased = False
@@ -2330,11 +2347,12 @@ class Sequencer:
                                     # rerun the loop on the same variable now that it is aliased
                                     continue
                                 
-                                # check instance variables (the only lines left in the class scope
+                                # check instance variables (the only lines left in the class scope)
                                 if not the_class.converted:
                                     the_class = self.convert_operations(the_class)
                                     the_class.converted = True
                                     # TODO
+                                    
 
                                 # check other classes if this is a global class
 

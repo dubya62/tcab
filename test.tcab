@@ -1,19 +1,8 @@
 
 
-
-public class TestClass{
-
-    public ** testVariable = 2;
-
-    public int anotherFunction(){
-        return 10;
-    }
-
-    public String func2(){
-        return "Hello, World";
-    }
-
-}
+// hello, world
+/* this is a multi-line comment */
+"// this is in a string" // hi
 
 public class Main{
 
@@ -21,7 +10,9 @@ public class Main{
     int constant = 3;
 
     public static void main(String[] args){
-        float test = 5.3;
+        private float test = 5.3;
+
+        private float test2[] = 1 + 2;
 
         TestClass.testVariable = TestClass.func2(TestClass.testVariable);
         TestClass.testVariable *= 8 + 2 / 3
