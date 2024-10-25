@@ -32,9 +32,6 @@ public class Normalizer{
         // handle lines broken with \
         this.tokens = this.combineBrokenLines(this.tokens);
 
-        // remove all unnecessary semicolons
-        this.tokens = this.removeSemicolonsAgain(this.tokens);
-
         Main.debug("Finished Normalizing!");
         Main.debug("Normalizer Output:");
         Main.debug(this.toString());
@@ -289,21 +286,6 @@ public class Normalizer{
         return result;
     }
 
-    /**
-     * Remove all unnecessary semicolons
-     */
-    private ArrayList<Token> removeSemicolonsAgain(ArrayList<Token> tokens){
-        Main.debug("Removing all unnecessary semicolons...");
-        ArrayList<Token> result = new ArrayList<>();
-
-        // it is safe to remove all semicolons after {
-        // TODO
-        
-
-
-        Main.debug("Finished removing unnecessary semicolons!");
-        return result;
-    }
 
     /**
      */

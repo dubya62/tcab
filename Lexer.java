@@ -81,6 +81,13 @@ public class Lexer{
         
         ArrayList<Token> result = new ArrayList<>();
 
+        // keeping track of what level of comments we are in 
+        int comment = 0;
+        int multiLineComments = 0;
+        int documentation = 0;
+
+        int opens = 0;
+
         int quotes = 0;
 
         // if you are inside quotes, dont break
@@ -97,8 +104,11 @@ public class Lexer{
 
                     // if this is a quote, toggle quotes
                     if (currentLine.charAt(j) == '"'){
-                        quotes ^= 1;
-                        quotes &= 1;
+                        // only start quotes if not in a comment
+                        if (quotes != 0 || comment != 1){
+                            quotes ^= 1;
+                            quotes &= 1;
+                        }
                         
                         // this was an end quote
                         if (quotes == 0){
@@ -112,6 +122,62 @@ public class Lexer{
                         continue;
                     }
 
+                    if (quotes == 0){
+                        // handle whether or not we are in a comment
+                        if (currentLine.charAt(j) == '/'){
+                            if (j > 0){
+                                // close a multiLine comment if needed
+                                if (currentLine.charAt(j-1) == '*'){
+                                    if (comment == 1 && multiLineComments == 1 && documentation == 0){
+                                        comment = 0;
+                                        multiLineComments = 0;
+                                    }
+                                }
+
+                            }
+
+                            if (j < currentLine.length()){
+                                // a normal single line comment
+                                if (currentLine.charAt(j+1) == '/'){
+                                    if (comment == 0){
+                                        comment = 1;
+                                    }
+                                } else if (currentLine.charAt(j+1) == '*'){
+                                    // start a multi-line comment
+                                    if (comment == 0){
+                                        comment = 1;
+                                        multiLineComments = 1;
+                                    }
+                                }
+                            } 
+                        } else if (currentLine.charAt(j) == '{'){
+                            if (result.size() > 0){
+                                // this is a doc comment
+                                if (result.get(j-1).token.equals("&")){
+                                    if (comment == 0){
+                                        comment = 1;
+                                        multiLineComments = 1;
+                                        documentation = 1;
+                                        opens = 1;
+                                    }
+
+                                }
+
+                            }
+                        } else if (currentLine.charAt(j) == '}'){
+                            if (opens > 0){
+                                opens--;
+                                if (opens == 0){
+                                    if (documentation == 1){
+                                        comment = 0;
+                                        multiLineComments = 0;
+                                        documentation = 0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // do not add empty tokens
                     if (currentToken.length() != 0){
                         // create a new token object
@@ -121,6 +187,9 @@ public class Lexer{
                     // do not add spaces
                     switch (currentLine.charAt(j)){
                         case '\n':
+                            if (comment == 1 && multiLineComments == 0){
+                                comment = 0;
+                            }
                             result.add(new Token(this.filename, i + 1, "\n"));
                             break;
                         case '\t':
