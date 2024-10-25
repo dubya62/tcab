@@ -111,11 +111,11 @@ public class Lexer{
                         }
                         
                         // this was an end quote
-                        if (quotes == 0){
+                        if (quotes == 0 && comment == 0){
                             result.get(result.size()-1).token += currentToken + currentLine.charAt(j);
                             currentToken = "";
                             continue;
-                        }
+                        } 
                     } else if (quotes == 1){
                         result.get(result.size()-1).token += currentToken + currentLine.charAt(j);
                         currentToken = "";
