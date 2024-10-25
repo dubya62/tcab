@@ -105,7 +105,7 @@ public class Lexer{
                     // if this is a quote, toggle quotes
                     if (currentLine.charAt(j) == '"'){
                         // only start quotes if not in a comment
-                        if (quotes != 0 || comment != 1){
+                        if (quotes == 1 || comment == 0){
                             quotes ^= 1;
                             quotes &= 1;
                         }
@@ -153,17 +153,17 @@ public class Lexer{
                         } else if (currentLine.charAt(j) == '{'){
                             if (result.size() > 0){
                                 // this is a doc comment
-                                if (result.get(j-1).token.equals("&")){
+                                if (result.get(result.size()-1).token.equals("&")){
                                     if (comment == 0){
                                         comment = 1;
                                         multiLineComments = 1;
                                         documentation = 1;
-                                        opens = 1;
-                                    }
-
+                                        opens = 0;
+                                    } 
                                 }
-
                             }
+                            opens++;
+
                         } else if (currentLine.charAt(j) == '}'){
                             if (opens > 0){
                                 opens--;

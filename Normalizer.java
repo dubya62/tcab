@@ -179,10 +179,12 @@ public class Normalizer{
                 if (i < tokens.size() && tokens.get(i).equals("{")){
                     // we are in a comment if not in a string
                     if (quotes == 0){
-                        comment ^= 1;
-                        comment &= 1;
+                        comment = 1;
+                        opens = 0;
                     }
+                    opens++;
                 }
+            } else if (tokens.get(i).equals("{")){
                 opens++;
             } else if (tokens.get(i).equals("}")){
                 opens--;

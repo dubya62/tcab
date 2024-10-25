@@ -1,14 +1,15 @@
 
 
-/*"*/
-hello 
-"
 
+
+hello 
 
 & {
+    "
     Hello there,
     This is in a block comment
-}
+    "
+} 
 
 public class Main{
 
