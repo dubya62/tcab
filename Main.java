@@ -17,6 +17,7 @@ public class Main{
 
         // perform normalization (removing comments etc.)
         Normalizer normalizer = new Normalizer(tokens);
+        tokens = normalizer.tokens;
         
         // handle conditional compilation
         

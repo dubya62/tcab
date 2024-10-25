@@ -1,8 +1,23 @@
 
 
+hello, there \
+how are you doing \
+
+I am doing fine
+
 // hello, world
 /* this is a multi-line comment */
-"// this is in a string" // hi
+"// this is "in a "string" // hi
+
+"this is another
+string
+across multiple lines"
+
+
+& {
+    Hello there,
+    This is in a block comment
+}
 
 public class Main{
 

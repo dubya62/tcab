@@ -1,9 +1,13 @@
 
 
-all: Main.class Lexer.class Syntax.class Preprocessor.class Token.class Normalizer.class
+CLASSES := Main.class Lexer.class Syntax.class Preprocessor.class Token.class Normalizer.class
+
+all: $(CLASSES)
 	java Main
 
-%.class: %.java
+
+
+$(CLASSES): %.class: %.java
 	javac $^
 	
 clean:

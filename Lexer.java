@@ -77,10 +77,13 @@ public class Lexer{
         // create a hashset with all of the breaking tokens in it
         Set<Character> breakChars = new HashSet<>();
         
-        breakChars.addAll(Arrays.asList('\n', '*', '$', '.', '#', ',', '[', ']', '<', '>', '&', '|', '\t', ' ', '^', '(', ')', '@', '%', '/', '=', '+', '-', ';', '\'', '"', '{', '}', ':'));
+        breakChars.addAll(Arrays.asList('\n', '*', '$', '.', '#', ',', '[', ']', '<', '>', '&', '|', '\t', ' ', '^', '(', ')', '@', '%', '/', '=', '+', '-', ';', '\'', '"', '{', '}', ':', '\\'));
         
         ArrayList<Token> result = new ArrayList<>();
 
+        int quotes = 0;
+
+        // if you are inside quotes, dont break
         for (int i=0; i<fileLines.size(); i++){
             // the entire line is the only String in this Array.
             // iterate through it and break at tokens
@@ -92,6 +95,23 @@ public class Lexer{
                 if (breakChars.contains(currentLine.charAt(j))){
                     // this is a break char
 
+                    // if this is a quote, toggle quotes
+                    if (currentLine.charAt(j) == '"'){
+                        quotes ^= 1;
+                        quotes &= 1;
+                        
+                        // this was an end quote
+                        if (quotes == 0){
+                            result.get(result.size()-1).token += currentToken + currentLine.charAt(j);
+                            currentToken = "";
+                            continue;
+                        }
+                    } else if (quotes == 1){
+                        result.get(result.size()-1).token += currentToken + currentLine.charAt(j);
+                        currentToken = "";
+                        continue;
+                    }
+
                     // do not add empty tokens
                     if (currentToken.length() != 0){
                         // create a new token object
@@ -101,10 +121,10 @@ public class Lexer{
                     // do not add spaces
                     switch (currentLine.charAt(j)){
                         case '\n':
-                            result.add(new Token(this.filename, i + 1, "\\n"));
+                            result.add(new Token(this.filename, i + 1, "\n"));
                             break;
                         case '\t':
-                            result.add(new Token(this.filename, i + 1, "\\t"));
+                            result.add(new Token(this.filename, i + 1, "\t"));
                             break;
                         default:
                             if (currentLine.charAt(j) != ' '){
