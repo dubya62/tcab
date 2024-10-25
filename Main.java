@@ -11,6 +11,13 @@ public class Main{
     static boolean DEBUG = true;
 
     public static void main(String[] args){
+
+        // parse the cliArgs
+        ArrayList<String> cliVariables = new ArrayList<>();
+        cliVariables.add("test=true");
+        cliVariables.add("testing=5.4");
+
+
         // perform tokenization
         Lexer lexer = new Lexer("test.tcab");
         ArrayList<Token> tokens = lexer.getTokens();
@@ -20,6 +27,8 @@ public class Main{
         tokens = normalizer.tokens;
         
         // handle conditional compilation
+        ConditionalCompiler conditionalCompiler = new ConditionalCompiler(tokens, cliVariables);
+        tokens = conditionalCompiler.tokens;
         
         // recursively add imports
         

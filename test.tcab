@@ -2,20 +2,12 @@
 
 
 
-hello 
-
-& {
-    "
-    Hello there,
-    This is in a block comment
-    "
-} 
-
 public class Main{
 
     use TestClass.anotherFunction as TestClass.func2
     int constant = 3;
 
+    #if test > 3
     public static void main(String[] args){
         private float test = 5.3;
 
@@ -27,6 +19,7 @@ public class Main{
         String result = "Hello, World!";
 
     } 
+    #endif
 
 }
 

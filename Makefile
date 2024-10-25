@@ -1,6 +1,6 @@
 
 
-CLASSES := Main.class Lexer.class Syntax.class Preprocessor.class Token.class Normalizer.class
+CLASSES := Main.class Lexer.class Syntax.class Preprocessor.class Token.class Normalizer.class ConditionalCompiler.class
 
 all: $(CLASSES)
 	java Main
