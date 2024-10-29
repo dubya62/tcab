@@ -9,6 +9,7 @@ import java.util.ArrayList;
 public class Main{
     // whether or not to print debug information
     static boolean DEBUG = true;
+    static ArrayList<Error> errors = new ArrayList<>();
 
     public static void main(String[] args){
 
@@ -41,9 +42,16 @@ public class Main{
         // preprocess based on the target platform
         
         // optimize based on the target platform
+
+        // write compiler errors to stdout
         
+
         // write the output code to the correct file type
 
+    }
+
+    public static void addError(Error error){
+        Main.errors.add(error);
     }
 
     /**
@@ -53,6 +61,16 @@ public class Main{
         if (Main.DEBUG){
             System.out.println(message);
         }
+    }
+
+    /**
+     * Print out all compiler errors and exit the program
+     */
+    public static void exit(){
+        for (int i=0; i<errors.size(); i++){
+            System.out.println(errors.get(i).toString());
+        }
+        System.exit(1);
     }
 
 

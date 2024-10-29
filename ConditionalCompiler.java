@@ -4,6 +4,7 @@
  */
 
 import java.util.ArrayList;
+import java.util.Stack;
 
 public class ConditionalCompiler{
     public ArrayList<Token> tokens;
@@ -56,6 +57,9 @@ public class ConditionalCompiler{
         boolean ignoring = false;
         boolean expressionResult;
         int opens = 0;
+
+        Stack<Boolean> ifsWereOpened = new Stack<>();
+        
         while (i < n){
             // we are looking for # and then one of the keywords
             if (tokens.get(i).equals("#")){
@@ -71,6 +75,8 @@ public class ConditionalCompiler{
                         }
 
                         expressionResult = evaluateExpression(cliVariables, expression);
+                        // save whether or not it was opened
+                        ifsWereOpened.push(expressionResult);
 
                         if (!ignoring){
                             ignoring = !expressionResult;
@@ -81,7 +87,17 @@ public class ConditionalCompiler{
                         i++;
                         continue;
                     } else if (tokens.get(i+1).equals("elif")){
+                        // make sure the last #if didn't happen
+                        if (ifsWereOpened.isEmpty()){
+                            Error theError = new Error("SYNTAX", "Cannot have #elif directive without an #if directive before it...", "Use an #if directive here.");
+                            theError.setErrorToken(tokens.get(i+1));
+                            Main.addError(theError);
+                            Main.exit();
+                        }
+
+
                         // evaluate expression
+
                         expression = new ArrayList<>();
                         i++;
                         i++;
@@ -105,6 +121,19 @@ public class ConditionalCompiler{
                         expressionResult = evaluateExpression(cliVariables, expression);
 
                     } else if (tokens.get(i+1).equals("endif")){
+                        if (ifsWereOpened.isEmpty()){
+                            Error theError = new Error("SYNTAX", "Missing matching #if to #endif...", "Either delete this #endif or create the matching #if.");
+                            theError.setErrorToken(tokens.get(i+1));
+                            Main.addError(theError);
+                            Main.exit();
+                        }
+                        ifsWereOpened.pop();
+                        opens--;
+                        if (opens == 0){
+                            ignoring = false;
+                        }
+                        i += 3;
+                        continue;
 
                     } 
                 }
@@ -127,6 +156,9 @@ public class ConditionalCompiler{
     }
 
 
+    /**
+     * Evaluate a conditional compiler directive expression based on the cliArgs
+     */
     private boolean evaluateExpression(ArrayList<String> cliArgs, ArrayList<Token> expression){
         System.out.println(expression.toString());
         return false;
