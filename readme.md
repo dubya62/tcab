@@ -83,11 +83,70 @@ System.out.println(example[0]);
 -   conditional compilation 
     - platform
     - whether or not a certain variable was passed to the compiler in the cli args
--   the acceptable values/types for a variable
+    - compiler directive functions
+        - type() = returns the type of a variable as a String
+        - 
+-   constrain
+    - the acceptable values/types for a variable
 -   A method where a library writer can put responsibility on the user to perform error checking
 -   whether or not a function provides human output
 -   the cost of a specific function
+```
+#if [condition]
+#elif [condition]
+#else
+#endif
 
+#constrain [condition] : <Reason for constraint> : <Suggestions>
+
+#output 
+
+type() = return type of given variable as a String
+
+PLATFORM 
+ARCHITECTURE
+
+```
+
+
+## Pattern matching
+-   Allow for more advanced pattern matching than a simple switch-case statement
+    - probably use ML as a model
+```
+// any function can be a pattern matching function
+public int test(String arg1){
+    case (""){}
+    case ("Hello"){
+        return -1;
+    }
+    case ("World"){
+        return 0;
+    }
+    case (_){
+        return 1;
+    }
+}
+
+
+// a normal switch case statment
+** result = int (String, int) {
+    case ("test", _){
+        return 1;
+    }
+    case ("hello", _){} // falls through
+    case (_, -1){
+        return 10;
+    }
+    case (_, _){
+        return 0;
+    }
+}("test", 10);
+
+result = 1;
+
+
+
+```
 
 
 

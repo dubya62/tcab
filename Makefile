@@ -1,10 +1,9 @@
 
 
-CLASSES := Main.class Lexer.class Syntax.class Preprocessor.class Token.class Normalizer.class ConditionalCompiler.class
+CLASSES := Main.class Lexer.class Syntax.class Preprocessor.class Token.class Normalizer.class ConditionalCompiler.class CliArgs.class CompilerVariable.class ImportHandler.class
 
 all: $(CLASSES)
-	java Main
-
+	java Main -d debug=true test.tcab
 
 
 $(CLASSES): %.class: %.java

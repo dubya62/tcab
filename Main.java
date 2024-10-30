@@ -11,16 +11,9 @@ public class Main{
     static boolean DEBUG = true;
     static ArrayList<Error> errors = new ArrayList<>();
 
-    public static void main(String[] args){
-
-        // parse the cliArgs
-        ArrayList<String> cliVariables = new ArrayList<>();
-        cliVariables.add("test=true");
-        cliVariables.add("testing=5.4");
-
-
+    public static ArrayList<Token> preprocessFile(CliArgs cliArgs, String filename){
         // perform tokenization
-        Lexer lexer = new Lexer("test.tcab");
+        Lexer lexer = new Lexer(filename);
         ArrayList<Token> tokens = lexer.getTokens();
 
         // perform normalization (removing comments etc.)
@@ -28,10 +21,21 @@ public class Main{
         tokens = normalizer.tokens;
         
         // handle conditional compilation
-        ConditionalCompiler conditionalCompiler = new ConditionalCompiler(tokens, cliVariables);
+        ConditionalCompiler conditionalCompiler = new ConditionalCompiler(tokens, cliArgs);
         tokens = conditionalCompiler.tokens;
+
+        return tokens;
+    }
+
+    public static void main(String[] args){
+        // parse the cliArgs
+        CliArgs cliArgs = parseCliArgs(args);
+        Main.debug("Command Line Arguments:");
+        Main.debug(cliArgs.toString());
         
         // recursively add imports
+        ImportHandler importHandler = new ImportHandler(cliArgs);
+        ArrayList<Token> tokens = importHandler.tokens;
         
         // perform syntax error checking
 
@@ -50,6 +54,24 @@ public class Main{
 
     }
 
+    /**
+     */
+    public static CliArgs parseCliArgs(String[] args){
+        CliArgs result = new CliArgs(args);
+
+        // -f = fastmath
+        // -v = verbose
+        // -h = help
+        // -d = define variables
+
+        
+
+
+        return result;
+    }
+
+    /**
+     */
     public static void addError(Error error){
         Main.errors.add(error);
     }
