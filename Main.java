@@ -53,6 +53,9 @@ public class Main{
             Main.exit();
         }
 
+        // remove all public, private, protected, and static keywords
+        tokens = removeAccessTokens(tokens);
+
         // perform deabstraction (converting methods into a serial program)
         Deabstractor deabstractor = new Deabstractor(tokens);
         tokens = deabstractor.tokens;
@@ -65,7 +68,11 @@ public class Main{
         
 
         // write the output code to the correct file type
+        
 
+        Main.debug("Writing final output to file...");
+        Main.debug("Final output:");
+        Main.debug(tokens.toString());
     }
 
     /**
@@ -98,6 +105,26 @@ public class Main{
             System.out.println(errors.get(i).toString());
         }
         System.exit(1);
+    }
+
+    /**
+     * remove public, private, protected, and static keywords
+     */
+    public static ArrayList<Token> removeAccessTokens(ArrayList<Token> fileTokens){
+        ArrayList<Token> result = new ArrayList<>();
+        for (int i=0; i<fileTokens.size(); i++){
+            switch(fileTokens.get(i).token){
+                case "public":
+                case "private":
+                case "protected":
+                case "static":
+                    break;
+                default:
+                    result.add(fileTokens.get(i));
+            }
+        }
+
+        return result;
     }
 
 
