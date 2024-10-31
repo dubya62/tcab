@@ -162,7 +162,18 @@ public class ConditionalCompiler{
                         i += 3;
                         continue;
 
-                    } 
+                    } else if (tokens.get(i+1).equals("print")){
+                        if (!ignoring){
+                            i += 2;
+                            while (i < tokens.size() && !tokens.get(i).token.equals(";")){
+                                System.out.print(tokens.get(i).token + " ");
+                                i++;
+                            }
+                            System.out.print("\n");
+                            i++;
+                            continue;
+                        }
+                    }
                 }
 
             }

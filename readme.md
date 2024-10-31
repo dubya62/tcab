@@ -101,6 +101,10 @@ System.out.println(example[0]);
 
 #output 
 
+#cycles <number of cycles>
+
+#print <Message>
+
 type() = return type of given variable as a String
 
 PLATFORM 

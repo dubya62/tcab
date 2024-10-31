@@ -73,7 +73,11 @@ public class ImportHandler{
             }
             if (currentFile.size() > 0){
                 for (int j=1; j<splittedFilename.length; j++){
-                    finalResult.add(new Token(importStatements.get(i).filename, 0, "protected"));
+                    if (j == 1){
+                        finalResult.add(new Token(importStatements.get(i).filename, 0, "protected"));
+                    } else {
+                        finalResult.add(new Token(importStatements.get(i).filename, 0, "public"));
+                    }
                     finalResult.add(new Token(importStatements.get(i).filename, 0, "class"));
                     finalResult.add(new Token(importStatements.get(i).filename, 0, splittedFilename[j]));
                     finalResult.add(new Token(importStatements.get(i).filename, 0, "{"));

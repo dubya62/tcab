@@ -39,13 +39,23 @@ public class Main{
         
         // perform syntax error checking (on this file and all imports)
         SyntaxChecker syntaxChecker = new SyntaxChecker(tokens);
+        tokens = syntaxChecker.tokens;
 
         // convert $ test functions to actual functions
+        TestFunctionConverter testFunctionConverter = new TestFunctionConverter(tokens);
+        tokens = testFunctionConverter.tokens;
 
         // perform access error checking (on this file and all imports)
         AccessChecker accessChecker = new AccessChecker(tokens);
 
+        // display errors if one was encountered
+        if (Main.errors.size() > 0){
+            Main.exit();
+        }
+
         // perform deabstraction (converting methods into a serial program)
+        Deabstractor deabstractor = new Deabstractor(tokens);
+        tokens = deabstractor.tokens;
         
         // pretranslate based on the target platform
         
@@ -62,15 +72,6 @@ public class Main{
      */
     public static CliArgs parseCliArgs(String[] args){
         CliArgs result = new CliArgs(args);
-
-        // -f = fastmath
-        // -v = verbose
-        // -h = help
-        // -d = define variables
-
-        
-
-
         return result;
     }
 

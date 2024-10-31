@@ -43,15 +43,18 @@ public class ImportStatement{
                 stillGoingBack = false;
                 result += importStatementTokens.get(i).token;
             }
+            System.out.println(result.toString());
         }
+        String finalResult = "";
         for (int i=0; i<splittedElements; i++){
-            result = splitted[i] + "/" + result;
+            finalResult += splitted[i] + "/";
         }
+        finalResult += result;
 
-        result += ".tcab";
+        finalResult += ".tcab";
 
-        Main.debug("Import file path " + result);
+        Main.debug("Import file path " + finalResult);
 
-        return result;
+        return finalResult;
     }
 }

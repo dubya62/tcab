@@ -1,14 +1,20 @@
 
-import test;
-import example;
+//import .test;
+//import example;
 
-public class Main{
+
+public class Main {
 
     public static void main(String[] args){
         private float test = 5.3;
         String result = "Hello, World!";
-
     } 
 
+    $ {
+        String result = "Hi";
+    }
+
+
 }
+
 
