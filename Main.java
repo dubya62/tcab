@@ -37,13 +37,17 @@ public class Main{
         ImportHandler importHandler = new ImportHandler(cliArgs);
         ArrayList<Token> tokens = importHandler.tokens;
         
-        // perform syntax error checking
+        // perform syntax error checking (on this file and all imports)
+        SyntaxChecker syntaxChecker = new SyntaxChecker(tokens);
 
-        // perform access error checking
+        // convert $ test functions to actual functions
+
+        // perform access error checking (on this file and all imports)
+        AccessChecker accessChecker = new AccessChecker(tokens);
 
         // perform deabstraction (converting methods into a serial program)
         
-        // preprocess based on the target platform
+        // pretranslate based on the target platform
         
         // optimize based on the target platform
 

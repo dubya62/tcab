@@ -1,23 +1,11 @@
 
-import ImportStatement.java
+import test;
+import example;
 
 public class Main{
 
-    #if test > 3
-        use TestClass.anotherFunction as TestClass.func2
-    #elif test < 5
-        System.out.println("Hello");
-    #endif
-
-
     public static void main(String[] args){
         private float test = 5.3;
-
-        private float test2[] = 1 + 2;
-
-        TestClass.testVariable = TestClass.func2(TestClass.testVariable);
-        TestClass.testVariable *= 8 + 2 / 3
-
         String result = "Hello, World!";
 
     } 

@@ -96,6 +96,7 @@ public class Normalizer{
             i++;
         }
 
+
         Main.debug("Finished Ignoring Single Line Comments!");
         return result;
     }
@@ -189,6 +190,9 @@ public class Normalizer{
             } else if (tokens.get(i).equals("}")){
                 opens--;
                 if (opens == 0){
+                    if (comment == 0){
+                        result.add(tokens.get(i));
+                    }
                     comment = 0;
                     i++;
                     continue;
@@ -201,6 +205,12 @@ public class Normalizer{
             }
 
             i++;
+        }
+        if (result.size() > 0){
+            if (!result.get(result.size()-1).equals(";")){
+                Token newToken = new Token(result.get(result.size()-1).filename, result.get(result.size()-1).lineNumber, ";");
+                result.add(newToken);
+            }
         }
         Main.debug("Finished Ignoring Documentation Blocks!");
         return result;
