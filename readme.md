@@ -133,7 +133,7 @@ public int test(String arg1){
 
 
 // a normal switch case statment
-** result = int (String, int) {
+** result = int (String var1, int var2) {
     case ("test", _){
         return 1;
     }
@@ -151,6 +151,24 @@ result = 1;
 
 
 ```
+
+## More Ideas
+-   case pattern matching (like ml)
+    - cons
+    - instance variables of classes (like prolog)
+    - elements of tuples
+    - exclusive matching
+    - arguments to the function itself are optional, but can be used within the statments if needed
+-   f strings
+-   default argument values
+-   built-in regex class that is equal to strings that match it (and vice versa)
+-   ability to create functions for a different class (only for the current scope) (implement/reimplement)
+-   list/array slicing
+-   threaded keyword to make all calls to this function create a new thread
+-   ability to serialize/deserialize objects
+-   ... as final arg for any number of extra args
+
+
 
 
 
